@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0d0d0f;
+  --s1: #131315;
+  --s2: #1a1a1d;
+  --s3: #222226;
+  --border: #28282d;
+  --text: #f0ede8;
+  --muted: #686573;
+  --math: #c9943d;
+  --math-bg: #c9943d14;
+  --ela: #4e9d9b;
+  --ela-bg: #4e9d9b14;
+  --green: #4caf82;
+  --red: #e05c5c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--math);
+  color: #0d0d0f;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--s1);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* Card base */
+.card {
+  background: var(--s1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Transition helper */
+.transition-border {
+  transition: border-color 0.2s ease;
+}
+
+/* Streaming cursor animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: '▋';
+  animation: blink 1s step-start infinite;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+/* Message slide-in */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.msg-enter {
+  animation: slideUp 0.2s ease forwards;
+}
+
+/* Pulse for streak */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 148, 61, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(201, 148, 61, 0); }
+}
+
+.streak-pulse {
+  animation: pulseGlow 2s ease infinite;
+}
+
+/* Ring progress for timer */
+.ring-progress {
+  transform: rotate(-90deg);
+  transform-origin: center;
+}

@@ -1,0 +1,546 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  avatarUrl    String?
+  role         String    @default("student") // "student" | "parent" | "tutor" | "admin"
+  suspended    Boolean   @default(false)
+  suspendedAt  DateTime?
+  suspendedBy  String?   // admin userId
+  suspendReason String?
+  deletedAt    DateTime? // soft delete
+  deletedBy    String?   // admin userId
+  agreedToTerms Boolean  @default(false)
+  agreedAt     DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions           StudySession[]
+  progress           TopicProgress[]
+  stats              UserStats?
+  streak             Streak?
+  dailyActivity      DailyActivity[]
+  questionAttempts   QuestionAttempt[]
+  subtopicProgress   SubtopicProgress[]
+  studyToolEvents    StudyToolEvent[]
+  achievements       Achievement[]
+  studyContentCache  StudyContentCache[]
+  scoreEntries       ScoreEntry[]
+  practiceSessions   PracticeSession[]
+  practiceAttempts   PracticeAttempt[]
+  bookmarks          Bookmark[]
+  studyPlan          StudyPlan?
+  parentConnections  ParentStudentLink[] @relation("ParentLinks")
+  studentConnections ParentStudentLink[] @relation("StudentLinks")
+  gameProfile        GameProfile?
+  pointTransactions  PointTransaction[]
+  sentRequests       FriendConnection[]  @relation("Requester")
+  recvRequests       FriendConnection[]  @relation("Receiver")
+  earnedBadges       EarnedBadge[]
+  challengeEntries   ChallengeParticipant[]
+  dailyQuests        StudentDailyQuest[]
+  conversations      ConversationParticipant[]
+  sentMessages       ConversationMessage[]
+}
+
+model StudySession {
+  id          String    @id @default(cuid())
+  userId      String
+  subject     String
+  topicId     String
+  topicLabel  String
+  difficulty  String
+  durationSec Int       @default(0)
+  xpEarned    Int       @default(0)
+  correct     Int       @default(0)
+  total       Int       @default(0)
+  completed   Boolean   @default(false)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  questionAttempts QuestionAttempt[]
+
+  @@index([userId])
+  @@index([subject])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model TopicProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  subject       String
+  topicId       String
+  xp            Int       @default(0)
+  correct       Int       @default(0)
+  total         Int       @default(0)
+  lastPracticed DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@index([userId])
+}
+
+model UserStats {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  totalXP       Int      @default(0)
+  mathXP        Int      @default(0)
+  elaXP         Int      @default(0)
+  totalSessions Int      @default(0)
+  mathSessions  Int      @default(0)
+  elaSessions   Int      @default(0)
+  mathCorrect   Int      @default(0)
+  mathTotal     Int      @default(0)
+  elaCorrect    Int      @default(0)
+  elaTotal      Int      @default(0)
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Streak {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  current     Int       @default(0)
+  longest     Int       @default(0)
+  lastStudied DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DailyActivity {
+  id                 String   @id @default(cuid())
+  userId             String
+  date               DateTime @db.Date
+  questionsAttempted Int      @default(0)
+  questionsCorrect   Int      @default(0)
+  xpEarned           Int      @default(0)
+  studyTimeSec       Int      @default(0)
+  sessionsCount      Int      @default(0)
+  mathTimeSec        Int      @default(0)
+  elaTimeSec         Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model QuestionAttempt {
+  id            String   @id @default(cuid())
+  sessionId     String
+  userId        String
+  subject       String
+  topicId       String
+  subtopicLabel String?
+  difficulty    String
+  isCorrect     Boolean
+  xpEarned      Int      @default(0)
+  attemptedAt   DateTime @default(now())
+
+  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([userId, topicId])
+}
+
+model SubtopicProgress {
+  id            String    @id @default(cuid())
+  userId        String
+  subject       String
+  topicId       String
+  subtopicLabel String
+  correct       Int       @default(0)
+  total         Int       @default(0)
+  xp            Int       @default(0)
+  lastPracticed DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId, subtopicLabel])
+  @@index([userId])
+  @@index([userId, topicId])
+}
+
+model StudyToolEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  toolType    String
+  subject     String
+  topicId     String
+  cardCount   Int      @default(0)
+  generatedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, toolType])
+}
+
+model Achievement {
+  id             String   @id @default(cuid())
+  userId         String
+  achievementKey String
+  earnedAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementKey])
+  @@index([userId])
+}
+
+model StudyContentCache {
+  id         String   @id @default(cuid())
+  userId     String
+  toolType   String
+  subject    String
+  topicLabel String
+  difficulty String
+  mode       String   @default("")
+  content    Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, toolType, subject, topicLabel, difficulty, mode])
+  @@index([userId])
+}
+
+model SATQuestion {
+  id            String   @id @default(cuid())
+  subject       String   // "math" | "ela"
+  topicId       String   // matches app topic IDs
+  subtopic      String?
+  difficulty    String   // "easy" | "medium" | "hard"
+  sourceFile    String   // e.g. "SAT_RW_01"
+  questionNum   Int
+  hasImage      Boolean  @default(false)
+  passage       String?  @db.Text
+  question      String   @db.Text
+  choiceA       String   @db.Text
+  choiceB       String   @db.Text
+  choiceC       String   @db.Text
+  choiceD       String?  @db.Text
+  correctAnswer String   // "A" | "B" | "C" | "D"
+  explanation   String   @db.Text
+  createdAt     DateTime @default(now())
+
+  @@unique([sourceFile, questionNum])
+  @@index([subject, topicId])
+  @@index([subject, difficulty])
+
+  practiceAttempts PracticeAttempt[]
+  bookmarks        Bookmark[]
+}
+
+model ScoreEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  testType   String   // "sat" | "psat_nmsqt" | "psat10" | "psat89" | "practice"
+  testName   String?
+  testDate   DateTime @db.Date
+  mathScore  Int
+  rwScore    Int
+  totalScore Int
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, testDate])
+}
+
+model PracticeSession {
+  id          String    @id @default(cuid())
+  userId      String
+  subject     String
+  topicId     String?
+  difficulty  String?   // null = mixed
+  totalQ      Int
+  correct     Int       @default(0)
+  completed   Boolean   @default(false)
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts PracticeAttempt[]
+
+  @@index([userId])
+  @@index([userId, completed])
+}
+
+model PracticeAttempt {
+  id                String   @id @default(cuid())
+  sessionId         String
+  userId            String
+  satQuestionId     String
+  selectedAnswer    String?  // "A" | "B" | "C" | "D" | null = skipped
+  isCorrect         Boolean
+  timeSpentSec      Int      @default(0)
+  explanationViewed Boolean  @default(false)
+  markedForReview   Boolean  @default(false)
+  masteredAt        DateTime?
+  attemptedAt       DateTime @default(now())
+
+  session     PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  satQuestion SATQuestion     @relation(fields: [satQuestionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([userId, isCorrect])
+  @@index([userId, satQuestionId])
+}
+
+model Bookmark {
+  id            String   @id @default(cuid())
+  userId        String
+  satQuestionId String
+  createdAt     DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  satQuestion SATQuestion @relation(fields: [satQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, satQuestionId])
+  @@index([userId])
+}
+
+model StudyPlan {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  weekStart DateTime @db.Date
+  days      Json
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ParentStudentLink {
+  id        String   @id @default(cuid())
+  parentId  String
+  studentId String
+  createdAt DateTime @default(now())
+
+  parent  User @relation("ParentLinks",  fields: [parentId],  references: [id], onDelete: Cascade)
+  student User @relation("StudentLinks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([parentId])
+  @@index([studentId])
+}
+
+// ── Gamification models ──────────────────────────────────────────────────────
+
+model GameProfile {
+  userId         String    @id
+  username       String    @unique
+  level          Int       @default(1)
+  totalXP        Int       @default(0)
+  weeklyXP       Int       @default(0)
+  monthlyXP      Int       @default(0)
+  coins          Int       @default(0)
+  privacySetting String    @default("friends")
+  weeklyXPReset  DateTime?
+  monthlyXPReset DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([weeklyXP])
+  @@index([username])
+}
+
+model PointTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  actionType   String
+  xpAwarded    Int      @default(0)
+  coinsAwarded Int      @default(0)
+  relatedId    String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, actionType, createdAt])
+  @@index([userId, relatedId])
+}
+
+model FriendConnection {
+  id          String   @id @default(cuid())
+  requesterId String
+  receiverId  String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  requester User @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiver  User @relation("Receiver",  fields: [receiverId],  references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, receiverId])
+  @@index([receiverId, status])
+  @@index([requesterId, status])
+}
+
+model BadgeCatalog {
+  id          String @id @default(cuid())
+  key         String @unique
+  name        String
+  description String
+  icon        String
+  category    String
+  condition   String @db.Text
+
+  earnedBadges EarnedBadge[]
+}
+
+model EarnedBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeKey String
+  earnedAt DateTime @default(now())
+
+  badge BadgeCatalog @relation(fields: [badgeKey], references: [key], onDelete: Cascade)
+  user  User         @relation(fields: [userId],   references: [id],  onDelete: Cascade)
+
+  @@unique([userId, badgeKey])
+  @@index([userId])
+}
+
+model Challenge {
+  id            String   @id @default(cuid())
+  creatorId     String
+  title         String
+  topicId       String?
+  subject       String
+  difficulty    String
+  questionCount Int      @default(10)
+  timeLimitMin  Int      @default(30)
+  questionIds   Json
+  status        String   @default("pending")
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  participants ChallengeParticipant[]
+
+  @@index([creatorId])
+  @@index([status])
+}
+
+model ChallengeParticipant {
+  id           String    @id @default(cuid())
+  challengeId  String
+  userId       String
+  correct      Int       @default(0)
+  total        Int       @default(0)
+  timeSpentSec Int       @default(0)
+  score        Float?
+  rank         Int?
+  xpEarned     Int       @default(0)
+  completedAt  DateTime?
+
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId],      references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([userId])
+}
+
+model DailyQuestCatalog {
+  id          String @id @default(cuid())
+  key         String @unique
+  title       String
+  description String
+  questType   String
+  targetValue Int
+  rewardXP    Int
+  rewardCoins Int    @default(0)
+
+  assignedQuests StudentDailyQuest[]
+}
+
+model StudentDailyQuest {
+  id          String    @id @default(cuid())
+  userId      String
+  questKey    String
+  progress    Int       @default(0)
+  status      String    @default("active")
+  assignedAt  DateTime  @db.Date
+  completedAt DateTime?
+  claimedAt   DateTime?
+
+  quest DailyQuestCatalog @relation(fields: [questKey], references: [key], onDelete: Cascade)
+  user  User              @relation(fields: [userId],   references: [id],  onDelete: Cascade)
+
+  @@unique([userId, questKey, assignedAt])
+  @@index([userId, assignedAt])
+}
+
+// ── Messaging models ─────────────────────────────────────────────────────────
+
+model Conversation {
+  id        String   @id @default(cuid())
+  type      String   @default("dm")   // "dm" | "group"
+  name      String?                    // group name only
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants ConversationParticipant[]
+  messages     ConversationMessage[]
+
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId],         references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model ConversationMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId],       references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
