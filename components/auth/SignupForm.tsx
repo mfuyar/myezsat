@@ -75,7 +75,7 @@ export default function SignupForm() {
           {AVATARS.map((a) => (
             <button key={a.id} type="button" onClick={() => setAvatar(a)}
               className={`w-full aspect-square rounded-xl flex items-center justify-center text-xl transition-all ${avatar.id === a.id ? "ring-2 ring-offset-2 ring-offset-[var(--bg)] scale-110" : "opacity-60 hover:opacity-90"}`}
-              style={{ background: a.bg, ringColor: a.bg }}>
+              style={{ background: a.bg, "--tw-ring-color": a.bg } as React.CSSProperties}>
               {a.emoji}
             </button>
           ))}

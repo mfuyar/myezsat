@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import AdminQuestions from "@/components/admin/AdminQuestions";
 import AdminUsers from "@/components/admin/AdminUsers";
+import AdminVocabWords from "@/components/admin/AdminVocabWords";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -13,10 +14,11 @@ export default async function AdminPage() {
   const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true, name: true } });
   if (dbUser?.role !== "admin" && dbUser?.role !== "tutor") redirect("/dashboard");
 
-  const [totalQ, totalUsers, completedSessions] = await Promise.all([
+  const [totalQ, totalUsers, completedSessions, vocabWords] = await Promise.all([
     prisma.sATQuestion.count(),
     prisma.user.count(),
     prisma.practiceSession.count({ where: { completed: true } }),
+    prisma.vocabWord.count({ where: { active: true } }),
   ]);
 
   const topicStats = await prisma.sATQuestion.groupBy({
@@ -43,15 +45,16 @@ export default async function AdminPage() {
       <main className="max-w-5xl mx-auto px-4 py-8 flex flex-col gap-8">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Admin Dashboard</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">Manage questions and monitor usage</p>
+        <p className="text-sm text-[var(--muted)] mt-1">Manage questions, vocabulary emails, and usage</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Questions in Bank", value: totalQ.toLocaleString(), color: "var(--math)" },
             { label: "Registered Users", value: totalUsers.toLocaleString(), color: "var(--ela)" },
             { label: "Practice Sessions", value: completedSessions.toLocaleString(), color: "var(--green)" },
+            { label: "Active Vocab Words", value: vocabWords.toLocaleString(), color: "var(--text)" },
           ].map((s) => (
             <div key={s.label} className="card p-5 flex flex-col gap-1">
               <p className="text-xs text-[var(--muted)] uppercase tracking-widest font-semibold">{s.label}</p>
@@ -94,6 +97,12 @@ export default async function AdminPage() {
         <section>
           <h2 className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold mb-3">User Management</h2>
           <AdminUsers />
+        </section>
+
+        {/* Vocabulary management */}
+        <section>
+          <h2 className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold mb-3">Vocabulary Emails</h2>
+          <AdminVocabWords />
         </section>
 
         {/* Question management */}

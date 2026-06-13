@@ -1,9 +1,15 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/dashboard", "/session", "/progress", "/study-tools", "/practice", "/mistakes", "/messages", "/friends", "/leaderboard", "/badges", "/challenges", "/study-plan", "/admin", "/profile"];
+const PROTECTED = ["/dashboard", "/session", "/progress", "/study-tools", "/practice", "/mistakes", "/messages", "/friends", "/leaderboard", "/badges", "/challenges", "/study-plan", "/settings", "/admin", "/profile"];
 const PUBLIC_ONLY = ["/login", "/signup"];
 const UNGUARDED = ["/demo", "/api/demo-chat", "/reset-password", "/forgot-password"];
+
+type CookieToSet = {
+  name: string;
+  value: string;
+  options: CookieOptions;
+};
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -16,7 +22,7 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: CookieToSet[]) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );

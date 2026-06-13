@@ -47,6 +47,7 @@ export default async function DashboardPage() {
           <Link href="/badges"      className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Badges</Link>
           <Link href="/study-plan"  className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Study Plan</Link>
           <Link href="/progress"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Progress</Link>
+          <Link href="/settings"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Settings</Link>
           {dbUser?.role === "admin" || dbUser?.role === "tutor" ? (
             <Link href="/admin" className="text-sm font-medium" style={{ color: "var(--math)" }}>Admin</Link>
           ) : null}
@@ -72,6 +73,7 @@ export default async function DashboardPage() {
               { href: "/mistakes",   label: "Mistakes",      icon: "📖", color: "var(--math)",  desc: "Review wrong answers" },
               { href: "/study-plan", label: "Study Plan",    icon: "📅", color: "var(--ela)",   desc: "Your weekly schedule" },
               { href: "/study-tools",label: "Study Tools",   icon: "🃏", color: "var(--math)",  desc: "Flashcards & slideshows" },
+              { href: "/settings",   label: "Vocab Emails",  icon: "✉️", color: "var(--ela)",   desc: "Daily SAT words" },
             ].map((a) => (
               <Link key={a.href} href={a.href}
                 className="card p-4 flex flex-col gap-2 hover:bg-[var(--s2)] transition-colors">
@@ -96,7 +98,10 @@ export default async function DashboardPage() {
           </div>
         </section>
 
-        <StatsRow stats={stats} streak={streak} />
+        <StatsRow
+          stats={stats}
+          streak={streak ? { ...streak, lastStudied: streak.lastStudied?.toISOString() } : null}
+        />
 
         <ScoreSection />
 
