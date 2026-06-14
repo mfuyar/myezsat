@@ -1,5 +1,5 @@
 import { genai } from "@/lib/ai/stream";
-import { MATH_SYSTEM, ELA_SYSTEM } from "@/lib/ai/prompts";
+import { buildDemoTutorAgentInstruction } from "@/lib/ai/tutor-agent";
 import { z } from "zod";
 
 const ChatSchema = z.object({
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   const { messages, subject, topicLabel, difficulty } = parsed.data;
-  const systemInstruction = subject === "math" ? MATH_SYSTEM : ELA_SYSTEM;
+  const systemInstruction = buildDemoTutorAgentInstruction({ subject, topicLabel, difficulty });
 
   const taggedMessages = messages.map((m, i) =>
     i === messages.length - 1 && m.role === "user"

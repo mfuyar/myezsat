@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { genai, toGeminiHistory } from "@/lib/ai/stream";
-import { MATH_SYSTEM, ELA_SYSTEM } from "@/lib/ai/prompts";
+import { buildTutorAgentInstruction } from "@/lib/ai/tutor-agent";
 import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
@@ -35,27 +35,12 @@ export async function POST(req: Request) {
   });
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
-  const latestScore = await prisma.scoreEntry.findFirst({
-    where: { userId: user.id },
-    orderBy: { testDate: "desc" },
-    select: { testType: true, testName: true, totalScore: true, mathScore: true, rwScore: true },
+  const systemInstruction = await buildTutorAgentInstruction({
+    userId: user.id,
+    subject,
+    topicLabel,
+    difficulty,
   });
-
-  let scoreContext = "";
-  if (latestScore) {
-    const label = latestScore.testName
-      ? `${latestScore.testType.toUpperCase()} (${latestScore.testName})`
-      : latestScore.testType.toUpperCase();
-    const weakSection =
-      Math.abs(latestScore.mathScore - latestScore.rwScore) >= 30
-        ? latestScore.mathScore < latestScore.rwScore
-          ? "Math is weaker — give extra encouragement and scaffolding on math problems."
-          : "Reading & Writing is weaker — push harder on ELA precision and strategy."
-        : "Math and Reading & Writing scores are close.";
-    scoreContext = `\n\nSTUDENT SCORE CONTEXT:\nLatest ${label}: ${latestScore.totalScore} total (Math: ${latestScore.mathScore}, R&W: ${latestScore.rwScore}). ${weakSection}`;
-  }
-
-  const systemInstruction = (subject === "math" ? MATH_SYSTEM : ELA_SYSTEM) + scoreContext;
 
   // Tag the last user message with topic/difficulty context
   const taggedMessages = messages.map((m, i) =>
