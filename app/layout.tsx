@@ -15,7 +15,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <footer className="border-t border-[var(--border)] px-6 py-5 text-center text-xs leading-relaxed text-[var(--muted)]">
+          <p>
+            SAT® is a registered trademark of the College Board, which is not affiliated with, and does not endorse, MyEzSAT.
+          </p>
+          <p className="mt-1">
+            PSAT/NMSQT® is a registered trademark of the College Board and National Merit Scholarship Corporation,
+            which are not affiliated with, and do not endorse, MyEzSAT.
+          </p>
+        </footer>
+      </body>
     </html>
   );
 }
