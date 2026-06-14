@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MATH_TOPICS, ELA_TOPICS } from "@/types";
 import type { Subject, Difficulty } from "@/types";
@@ -22,8 +22,11 @@ const COUNTS = [5, 10, 20, 30];
 
 export default function PracticeSetupPage() {
   const router = useRouter();
-  const [subject, setSubject] = useState<Subject>("ela");
-  const [topicId, setTopicId] = useState<string>("all");
+  const searchParams = useSearchParams();
+  const initialSubject = searchParams.get("subject") === "math" ? "math" : "ela";
+  const initialTopic = searchParams.get("topic") ?? "all";
+  const [subject, setSubject] = useState<Subject>(initialSubject);
+  const [topicId, setTopicId] = useState<string>(initialTopic);
   const [difficulty, setDifficulty] = useState<DifficultyOption>("mixed");
   const [count, setCount] = useState(10);
   const [loading, setLoading] = useState(false);

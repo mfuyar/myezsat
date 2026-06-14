@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 interface DayPlan {
   day: string; type: string; subject: string;
   topicId: string; topicLabel: string; count: number; note: string;
+  completed?: boolean; completedAt?: string | null;
 }
 
 const TYPE_ICON: Record<string, string> = {
@@ -20,9 +21,11 @@ const TYPE_LABEL: Record<string, string> = {
 export default function StudyPlanPage() {
   const [days, setDays] = useState<DayPlan[]>([]);
   const [weekStart, setWeekStart] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [savingDay, setSavingDay] = useState<string | null>(null);
 
   async function loadPlan() {
     setLoading(true);
@@ -31,6 +34,7 @@ export default function StudyPlanPage() {
     if (data.plan) {
       setDays(data.plan.days);
       setWeekStart(data.plan.weekStart);
+      setUpdatedAt(data.plan.updatedAt);
     }
     setLoading(false);
   }
@@ -46,13 +50,40 @@ export default function StudyPlanPage() {
     if (data.plan) {
       setDays(data.plan.days);
       setWeekStart(data.plan.weekStart);
+      setUpdatedAt(data.plan.updatedAt);
     }
     setGenerating(false);
+  }
+
+  async function toggleDay(dayName: string, completed: boolean) {
+    setSavingDay(dayName);
+    const previous = days;
+    setDays((current) => current.map((day) => (
+      day.day === dayName
+        ? { ...day, completed, completedAt: completed ? new Date().toISOString() : null }
+        : day
+    )));
+
+    const res = await fetch("/api/study-plan", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ day: dayName, completed }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.plan) {
+      setDays(data.plan.days);
+      setUpdatedAt(data.plan.updatedAt);
+    } else {
+      setDays(previous);
+    }
+    setSavingDay(null);
   }
 
   useEffect(() => { loadPlan(); }, []);
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long" });
+  const completedCount = days.filter((day) => day.completed).length;
+  const progressPct = days.length ? Math.round((completedCount / days.length) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -71,6 +102,12 @@ export default function StudyPlanPage() {
             <p className="text-sm text-[var(--muted)] mt-1">
               {weekStart ? `Week of ${new Date(weekStart).toLocaleDateString("en-US", { month: "long", day: "numeric" })}` : "Your personalized weekly plan"}
             </p>
+            {updatedAt && (
+              <p className="text-[11px] text-[var(--muted)] mt-0.5">
+                Saved {new Date(updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} at{" "}
+                {new Date(updatedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </p>
+            )}
           </div>
           <Button variant="math" size="sm" loading={generating} onClick={generatePlan}>
             {days.length ? "Regenerate" : "Generate Plan"}
@@ -94,6 +131,21 @@ export default function StudyPlanPage() {
             Include subjects, topics, difficulty, schedule, or anything you want the plan to prioritize.
           </p>
         </div>
+
+        {days.length > 0 && (
+          <section className="card p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text)]">Weekly progress</p>
+                <p className="text-xs text-[var(--muted)]">{completedCount} of {days.length} study days complete</p>
+              </div>
+              <span className="font-mono text-lg font-semibold text-[var(--math)]">{progressPct}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--s3)]">
+              <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, background: "var(--math)" }} />
+            </div>
+          </section>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -132,26 +184,46 @@ export default function StudyPlanPage() {
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium border"
                         style={{ borderColor: color, color }}>{TYPE_LABEL[day.type]}</span>
                       {isToday && <span className="text-[10px] text-green-400 font-semibold">← Today</span>}
+                      {day.completed && <span className="text-[10px] text-green-400 font-semibold">Done</span>}
                     </div>
                     <p className="text-xs text-[var(--muted)] mt-0.5">{day.note}</p>
                     {day.count > 0 && (
                       <p className="text-xs text-[var(--muted)] mt-0.5">{day.count} questions · ~{Math.round(day.count * 1.5)} min</p>
                     )}
+                    {day.completedAt && (
+                      <p className="text-[10px] text-[var(--muted)] mt-1">
+                        Completed {new Date(day.completedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    )}
                   </div>
-                  {isToday && day.topicId !== "all" && (
-                    <Link href={`/practice?topic=${day.topicId}&subject=${day.subject}`}
-                      className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--bg)] transition-all"
-                      style={{ background: color }}>
-                      Start →
-                    </Link>
-                  )}
-                  {isToday && day.type === "mistake-review" && (
-                    <Link href="/mistakes"
-                      className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--bg)] transition-all"
-                      style={{ background: color }}>
-                      Review →
-                    </Link>
-                  )}
+                  <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleDay(day.day, !day.completed)}
+                      disabled={savingDay === day.day}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50 ${
+                        day.completed
+                          ? "border-green-500/50 text-green-400 hover:bg-green-500/10"
+                          : "border-[var(--border)] text-[var(--muted)] hover:bg-[var(--s2)] hover:text-[var(--text)]"
+                      }`}
+                    >
+                      {day.completed ? "Completed" : "Mark done"}
+                    </button>
+                    {day.topicId !== "all" && (
+                      <Link href={`/practice?topic=${day.topicId}&subject=${day.subject}`}
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--bg)] transition-all"
+                        style={{ background: color }}>
+                        Start →
+                      </Link>
+                    )}
+                    {day.type === "mistake-review" && (
+                      <Link href="/mistakes"
+                        className="px-3 py-1.5 rounded-lg text-xs font-medium text-[var(--bg)] transition-all"
+                        style={{ background: color }}>
+                        Review →
+                      </Link>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -159,7 +231,7 @@ export default function StudyPlanPage() {
         )}
 
         <p className="text-xs text-[var(--muted)] text-center">
-          Plans are regenerated weekly and adapt to your performance. Complete practice sessions to improve recommendations.
+          Your plan and completion progress are saved. Regenerate anytime to adapt it to your latest performance.
         </p>
       </main>
     </div>
