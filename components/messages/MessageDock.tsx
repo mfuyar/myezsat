@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 type DockSize = "compact" | "standard" | "wide";
 
@@ -68,10 +69,12 @@ export default function MessageDock() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [pendingInvites, setPendingInvites] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeConversation, setActiveConversation] = useState<DockConversation | null>(null);
   const [messages, setMessages] = useState<DockMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [meId, setMeId] = useState<string | null>(null);
@@ -102,12 +105,18 @@ export default function MessageDock() {
   const loadMessages = useCallback(async () => {
     if (!enabled) return;
     setLoading(true);
+    setListError(null);
     try {
       const res = await fetch("/api/messages", { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setListError("Could not load messages.");
+        return;
+      }
       const data = (await res.json()) as MessagePayload;
       setConversations(data.conversations ?? []);
       setPendingInvites(data.pendingGroupInvites?.length ?? 0);
+    } catch {
+      setListError("Could not connect to messages.");
     } finally {
       setLoading(false);
     }
@@ -115,13 +124,19 @@ export default function MessageDock() {
 
   const loadConversation = useCallback(async (conversationId: string) => {
     setMessagesLoading(true);
+    setChatError(null);
     try {
       const res = await fetch(`/api/messages/${conversationId}`, { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setChatError("Could not load this chat.");
+        return;
+      }
       const data = await res.json();
       setActiveConversation(data.conversation);
       setMessages(data.messages ?? []);
       loadMessages();
+    } catch {
+      setChatError("Could not connect to this chat.");
     } finally {
       setMessagesLoading(false);
     }
@@ -162,13 +177,28 @@ export default function MessageDock() {
     [conversations, pendingInvites]
   );
 
+  const myUsername = activeConversation?.participants.find((participant) => participant.userId === meId)?.user.gameProfile?.username ?? "Someone";
+  const { typingUsers, announceTyping, announceStopped } = useTypingIndicator({
+    conversationId: activeId,
+    userId: meId,
+    username: myUsername,
+    enabled: !!activeId && open,
+  });
+  const typingLabel = typingUsers.length === 1
+    ? `@${typingUsers[0]} is typing...`
+    : typingUsers.length > 1
+      ? `${typingUsers.slice(0, 2).map((name) => `@${name}`).join(", ")} are typing...`
+      : "";
+
   if (!enabled || pathname?.startsWith("/messages/")) return null;
 
   async function sendMessage() {
     const text = draft.trim();
     if (!activeId || !text || sending) return;
+    announceStopped();
     setDraft("");
     setSending(true);
+    setChatError(null);
     try {
       const res = await fetch(`/api/messages/${activeId}`, {
         method: "POST",
@@ -179,7 +209,13 @@ export default function MessageDock() {
         const data = await res.json();
         setMessages((prev) => [...prev, data.message]);
         loadMessages();
+      } else {
+        setDraft(text);
+        setChatError("Message was not sent.");
       }
+    } catch {
+      setDraft(text);
+      setChatError("Could not connect. Message was not sent.");
     } finally {
       setSending(false);
     }
@@ -191,6 +227,7 @@ export default function MessageDock() {
   }
 
   function backToList() {
+    announceStopped();
     setActiveId(null);
     setActiveConversation(null);
     setMessages([]);
@@ -257,7 +294,10 @@ export default function MessageDock() {
           </Link>
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              announceStopped();
+              setOpen(false);
+            }}
             className="rounded-md px-2 py-1 text-xs font-medium text-[var(--muted)] hover:bg-[var(--s2)] hover:text-[var(--text)]"
             aria-label="Minimize messages"
           >
@@ -290,6 +330,17 @@ export default function MessageDock() {
             {messagesLoading ? (
               <div className="flex h-full items-center justify-center">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--ela)]" />
+              </div>
+            ) : chatError && messages.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <p className="text-xs text-red-400">{chatError}</p>
+                <button
+                  type="button"
+                  onClick={() => activeId && loadConversation(activeId)}
+                  className="rounded-md border border-[var(--border)] px-3 py-1 text-xs text-[var(--text)] hover:bg-[var(--s2)]"
+                >
+                  Retry
+                </button>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex h-full items-center justify-center text-center">
@@ -326,6 +377,19 @@ export default function MessageDock() {
           </div>
 
           <div className="flex-shrink-0 border-t border-[var(--border)] p-3">
+            {chatError && messages.length > 0 && (
+              <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1">
+                <p className="text-[10px] text-red-300">{chatError}</p>
+                <button
+                  type="button"
+                  onClick={() => activeId && loadConversation(activeId)}
+                  className="text-[10px] font-semibold text-red-200 hover:text-white"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {typingLabel && <p className="mb-1 px-1 text-[10px] text-[var(--ela)]">{typingLabel}</p>}
             <div className="flex items-end gap-2 rounded-xl border border-[var(--border)] bg-[var(--s2)] p-2">
               <textarea
                 rows={1}
@@ -334,6 +398,8 @@ export default function MessageDock() {
                   setDraft(event.target.value);
                   event.target.style.height = "auto";
                   event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+                  if (event.target.value.trim()) announceTyping();
+                  else announceStopped();
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder="Message..."
@@ -356,6 +422,17 @@ export default function MessageDock() {
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {loading && conversations.length === 0 ? (
             <p className="px-3 py-4 text-xs text-[var(--muted)]">Loading messages...</p>
+          ) : listError ? (
+            <div className="px-3 py-8 text-center">
+              <p className="text-xs text-red-400">{listError}</p>
+              <button
+                type="button"
+                onClick={loadMessages}
+                className="mt-2 rounded-md border border-[var(--border)] px-3 py-1 text-xs text-[var(--text)] hover:bg-[var(--s2)]"
+              >
+                Retry
+              </button>
+            </div>
           ) : conversations.length === 0 ? (
             <div className="px-3 py-8 text-center">
               <p className="text-sm text-[var(--text)]">No conversations yet</p>
