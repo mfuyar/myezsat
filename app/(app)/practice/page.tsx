@@ -63,7 +63,7 @@ export default function PracticeSetupPage() {
       <main className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-8">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Practice</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">Answer real SAT questions from the official question bank</p>
+          <p className="text-sm text-[var(--muted)] mt-1">Answer original SAT-style practice questions</p>
         </div>
 
         {/* Subject */}

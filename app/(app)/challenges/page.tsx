@@ -61,7 +61,7 @@ export default function ChallengesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--text)]">Challenges</h1>
-            <p className="text-sm text-[var(--muted)] mt-1">Compete against friends on real SAT questions</p>
+            <p className="text-sm text-[var(--muted)] mt-1">Compete against friends on SAT-style practice questions</p>
           </div>
           <Button variant="math" size="sm" onClick={() => setShowCreate(true)}>+ Challenge Friend</Button>
         </div>

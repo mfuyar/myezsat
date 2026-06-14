@@ -69,7 +69,7 @@ export default async function DashboardPage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { href: "/practice",   label: "Practice",      icon: "📝", color: "var(--ela)",   desc: "Answer real SAT questions" },
+              { href: "/practice",   label: "Practice",      icon: "📝", color: "var(--ela)",   desc: "Answer SAT-style questions" },
               { href: "/mistakes",   label: "Mistakes",      icon: "📖", color: "var(--math)",  desc: "Review wrong answers" },
               { href: "/study-plan", label: "Study Plan",    icon: "📅", color: "var(--ela)",   desc: "Your weekly schedule" },
               { href: "/study-tools",label: "Study Tools",   icon: "🃏", color: "var(--math)",  desc: "Flashcards & slideshows" },
