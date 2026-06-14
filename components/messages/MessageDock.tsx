@@ -15,6 +15,7 @@ type Conversation = {
   participants: { userId: string; username: string }[];
   lastMessage: { content: string; createdAt: string } | null;
   unread: boolean;
+  unreadCount: number;
   updatedAt: string;
 };
 
@@ -47,6 +48,10 @@ const WIDTH_BY_SIZE: Record<DockSize, string> = {
   standard: "lg:w-[420px]",
   wide: "lg:w-[520px]",
 };
+
+function formatBadgeCount(count: number) {
+  return count > 99 ? "99+" : String(count);
+}
 
 function readStoredBool(key: string, fallback: boolean) {
   if (typeof window === "undefined") return fallback;
@@ -173,7 +178,7 @@ export default function MessageDock() {
   }, [messages]);
 
   const unreadCount = useMemo(
-    () => conversations.filter((conversation) => conversation.unread).length + pendingInvites,
+    () => conversations.reduce((total, conversation) => total + (conversation.unreadCount ?? 0), 0) + pendingInvites,
     [conversations, pendingInvites]
   );
 
@@ -259,7 +264,7 @@ export default function MessageDock() {
         <span className="block [writing-mode:vertical-rl]">Messages</span>
         {unreadCount > 0 && (
           <span className="absolute -left-2 -top-2 min-w-5 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
-            {unreadCount > 9 ? "9+" : unreadCount}
+            {formatBadgeCount(unreadCount)}
           </span>
         )}
       </button>
@@ -468,7 +473,11 @@ export default function MessageDock() {
                       <p className={`truncate text-sm ${conversation.unread ? "font-semibold text-[var(--text)]" : "text-[var(--muted)]"}`}>
                         {conversation.name}
                       </p>
-                      {conversation.unread && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[var(--ela)]" />}
+                      {(conversation.unreadCount ?? 0) > 0 && (
+                        <span className="min-w-5 flex-shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
+                          {formatBadgeCount(conversation.unreadCount)}
+                        </span>
+                      )}
                     </div>
                     <p className="truncate text-[11px] text-[var(--muted)]">
                       {conversation.lastMessage?.content ?? "No messages yet"}

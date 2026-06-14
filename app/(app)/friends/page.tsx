@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import SocialNavLink from "@/components/notifications/SocialNavLink";
 
 interface Friend { connectionId: string; id: string; name: string | null; gameProfile: { username: string; level: number; weeklyXP: number } | null }
 interface Pending { id: string; requester?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null }; receiver?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null } }
@@ -139,6 +140,9 @@ export default function FriendsPage() {
       <nav className="border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <span className="font-serif italic text-xl text-[var(--text)]">myezsat</span>
         <div className="flex items-center gap-4">
+          <SocialNavLink href="/messages" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Messages
+          </SocialNavLink>
           <Link href="/leaderboard" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Leaderboard</Link>
           <Link href="/challenges"  className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Challenges</Link>
           <Link href="/dashboard"   className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">← Dashboard</Link>

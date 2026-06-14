@@ -7,6 +7,7 @@ import StatsRow from "@/components/dashboard/StatsRow";
 import AccuracyBar from "@/components/dashboard/AccuracyBar";
 import ScoreSection from "@/components/dashboard/ScoreSection";
 import GameSection from "@/components/game/GameSection";
+import SocialNavLink from "@/components/notifications/SocialNavLink";
 import Badge from "@/components/ui/Badge";
 import { MATH_TOPICS, ELA_TOPICS } from "@/types";
 import { formatDuration, pct } from "@/lib/utils";
@@ -41,9 +42,13 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-4">
           <Link href="/practice"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Practice</Link>
           <Link href="/mistakes"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Mistakes</Link>
-          <Link href="/messages"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Messages</Link>
+          <SocialNavLink href="/messages" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Messages
+          </SocialNavLink>
           <Link href="/leaderboard" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Leaderboard</Link>
-          <Link href="/friends"     className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Friends</Link>
+          <SocialNavLink href="/friends" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Friends
+          </SocialNavLink>
           <Link href="/badges"      className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Badges</Link>
           <Link href="/study-plan"  className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Study Plan</Link>
           <Link href="/progress"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Progress</Link>
