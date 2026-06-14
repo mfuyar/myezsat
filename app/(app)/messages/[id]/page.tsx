@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import MessageContent from "@/components/messages/StudyDiscussionCard";
 
 interface Msg {
   id: string; conversationId: string; senderId: string; content: string; createdAt: string;
@@ -172,7 +173,7 @@ export default function ChatPage() {
                     : "rounded-tl-sm bg-[var(--s2)] border border-[var(--border)] text-[var(--text)]"
                 }`}
                   style={isMe ? { background: "var(--ela)" } : {}}>
-                  {msg.content}
+                  <MessageContent content={msg.content} />
                 </div>
                 <p className="text-[9px] text-[var(--muted)] mt-0.5 px-1">{formatTime(msg.createdAt)}</p>
               </div>

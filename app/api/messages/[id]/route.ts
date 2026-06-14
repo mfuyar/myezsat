@@ -50,7 +50,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json({ conversation, messages: messages.reverse() });
 }
 
-const SendSchema = z.object({ content: z.string().min(1).max(2000) });
+const SendSchema = z.object({ content: z.string().min(1).max(4000) });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiUser();

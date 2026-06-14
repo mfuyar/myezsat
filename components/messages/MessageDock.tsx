@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import MessageContent from "@/components/messages/StudyDiscussionCard";
 
 type DockSize = "compact" | "standard" | "wide";
 
@@ -370,7 +371,7 @@ export default function MessageDock() {
                         }`}
                         style={alignRight ? { background: "var(--ela)" } : {}}
                       >
-                        {message.content}
+                        <MessageContent content={message.content} />
                       </div>
                       <p className="px-1 text-[9px] text-[var(--muted)]">{formatTime(message.createdAt)}</p>
                     </div>

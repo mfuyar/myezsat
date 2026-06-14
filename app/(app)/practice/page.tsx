@@ -7,6 +7,7 @@ import { MATH_TOPICS, ELA_TOPICS } from "@/types";
 import type { Subject, Difficulty } from "@/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import ShareStudyDiscussion from "@/components/messages/ShareStudyDiscussion";
 
 type DifficultyOption = Difficulty | "mixed";
 
@@ -29,6 +30,7 @@ export default function PracticeSetupPage() {
   const [error, setError] = useState<string | null>(null);
 
   const topics = subject === "math" ? MATH_TOPICS : ELA_TOPICS;
+  const selectedTopic = topics.find((topic) => topic.id === topicId);
   const color = subject === "math" ? "var(--math)" : "var(--ela)";
 
   async function startPractice() {
@@ -113,6 +115,27 @@ export default function PracticeSetupPage() {
             ))}
           </div>
         </div>
+
+        {selectedTopic && (
+          <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text)]">Study {selectedTopic.label} with friends</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                Start a 1:1 or group discussion before practice.
+              </p>
+            </div>
+            <ShareStudyDiscussion
+              payload={{
+                kind: "topic",
+                subject,
+                topicId: selectedTopic.id,
+                topicLabel: selectedTopic.label,
+              }}
+              buttonLabel="Discuss topic"
+              buttonVariant={subject === "math" ? "math" : "ela"}
+            />
+          </div>
+        )}
 
         {/* Count */}
         <div>
