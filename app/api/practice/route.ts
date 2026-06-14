@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/api/auth";
+import { generateAndStoreQuestions } from "@/lib/ai/question-generator";
 import { z } from "zod";
 
 const StartSchema = z.object({
@@ -45,6 +46,24 @@ export async function POST(req: Request) {
     where: { ...where, id: { notIn: [...masteredSet] } },
     select: { id: true },
   });
+
+  if (questions.length < count) {
+    try {
+      await generateAndStoreQuestions({
+        subject,
+        topicId,
+        difficulty: difficulty && difficulty !== "mixed" ? difficulty : "medium",
+        count: count - questions.length,
+      });
+
+      questions = await prisma.sATQuestion.findMany({
+        where: { ...where, id: { notIn: [...masteredSet] } },
+        select: { id: true },
+      });
+    } catch (err) {
+      console.error("Failed to generate practice questions", err);
+    }
+  }
 
   // Sort: unattempted first, then attempted
   const unattempted = questions.filter((q) => !attemptedSet.has(q.id));
