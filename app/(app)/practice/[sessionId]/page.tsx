@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
@@ -31,7 +31,10 @@ export default function PracticeSessionPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const questionIds = searchParams.get("q")?.split(",") ?? [];
+  const questionIds = useMemo(
+    () => searchParams.get("q")?.split(",").filter(Boolean) ?? [],
+    [searchParams]
+  );
   const [index, setIndex] = useState(0);
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState<AnswerState>(null);
