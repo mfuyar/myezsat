@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 interface Friend { connectionId: string; id: string; name: string | null; gameProfile: { username: string; level: number; weeklyXP: number } | null }
 interface Pending { id: string; requester?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null }; receiver?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null } }
 interface Me { username: string; level: number }
+interface UserSuggestion { id: string; username: string; name: string | null; level: number; weeklyXP: number }
 
 export default function FriendsPage() {
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -20,6 +21,8 @@ export default function FriendsPage() {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [searchResult, setSearchResult] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<UserSuggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -38,17 +41,52 @@ export default function FriendsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function sendRequest() {
-    if (!search.trim()) return;
+  useEffect(() => {
+    const query = search.trim().toLowerCase();
+
+    if (query.length < 3) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSuggestionsLoading(true);
+      try {
+        const res = await fetch(`/api/friends/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data.users ?? []);
+        }
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          setSuggestions([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) setSuggestionsLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [search]);
+
+  async function sendRequest(username = search) {
+    if (!username.trim()) return;
     setSending(true);
     setSearchResult(null);
     const res = await fetch("/api/friends", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: search.trim() }),
+      body: JSON.stringify({ username: username.trim() }),
     });
     const d = await res.json();
     setSending(false);
-    if (res.ok) { setSearchResult("Request sent!"); setSearch(""); load(); }
+    if (res.ok) { setSearchResult("Request sent!"); setSearch(""); setSuggestions([]); load(); }
     else setSearchResult(d.error ?? "Error sending request");
   }
 
@@ -114,12 +152,48 @@ export default function FriendsPage() {
         <div className="card p-4 flex flex-col gap-3">
           <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-widest">Add a Friend</p>
           <div className="flex gap-2">
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by username or email"
+            <input type="text" value={search} onChange={(e) => {
+              setSearch(e.target.value);
+              setSearchResult(null);
+            }}
+              placeholder="Type 3+ characters to find users"
               onKeyDown={(e) => e.key === "Enter" && sendRequest()}
               className="flex-1 bg-[var(--s2)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none" />
-            <Button variant="math" size="sm" onClick={sendRequest} loading={sending}>Send</Button>
+            <Button variant="math" size="sm" onClick={() => sendRequest()} loading={sending}>Send</Button>
           </div>
+          {search.trim().length >= 3 && (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] overflow-hidden">
+              {suggestionsLoading ? (
+                <p className="px-3 py-2 text-xs text-[var(--muted)]">Searching...</p>
+              ) : suggestions.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-[var(--muted)]">No available users found.</p>
+              ) : (
+                suggestions.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => {
+                      setSearch(user.username);
+                      sendRequest(user.username);
+                    }}
+                    disabled={sending}
+                    className="w-full px-3 py-2 flex items-center gap-3 text-left border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--s3)] disabled:opacity-60 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-[var(--bg)] flex items-center justify-center text-xs font-bold text-[var(--ela)]">
+                      {user.username[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[var(--text)]">@{user.username}</p>
+                      <p className="text-[10px] text-[var(--muted)] truncate">
+                        {user.name ? `${user.name} · ` : ""}Level {user.level} · {user.weeklyXP} XP this week
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-[var(--math)]">Add</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
           {searchResult && <p className={`text-xs ${searchResult.includes("sent") ? "text-green-400" : "text-red-400"}`}>{searchResult}</p>}
           {me && (
             <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3 flex flex-col gap-2">
