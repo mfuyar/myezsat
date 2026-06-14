@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     select: { id: true },
   });
 
+  // Use the saved bank first. Only generate and persist original questions when the bank is short.
   if (questions.length < count) {
     try {
       await generateAndStoreQuestions({

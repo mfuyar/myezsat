@@ -42,13 +42,6 @@ export async function generateAndStoreQuestions({
   const targetCount = Math.min(Math.max(count, 1), 10);
   const sourceFile = `ai-generated-${subject}-${targetTopicId}`;
 
-  const existingExamples = await prisma.sATQuestion.findMany({
-    where: { subject, topicId: targetTopicId, difficulty },
-    select: { question: true },
-    orderBy: { createdAt: "desc" },
-    take: 8,
-  });
-
   const subjectLabel = subject === "math" ? "SAT Math" : "SAT Reading and Writing";
   const prompt = `You are creating original practice questions for MyEzSAT's reusable question bank.
 
@@ -68,8 +61,7 @@ Requirements:
 - For Math, write equations in plain text and make questions solvable without images.
 - For Reading and Writing, include a short passage only when the question needs one; use original passages.
 - Explanations should teach the rule or reasoning clearly.
-- Avoid making questions similar to these existing saved stems:
-${existingExamples.map((item, index) => `${index + 1}. ${item.question.slice(0, 240)}`).join("\n") || "None"}
+- Do not include citations unless a user-provided source is explicitly being discussed.
 
 Return ONLY a valid JSON array:
 [
