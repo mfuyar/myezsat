@@ -110,9 +110,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg)]">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] flex-shrink-0">
+    <div className="min-h-screen bg-[var(--bg)] lg:flex lg:justify-end">
+      <section className="flex h-screen w-full flex-col bg-[var(--bg)] lg:max-w-xl lg:border-l lg:border-[var(--border)]">
+        {/* Header */}
+        <header className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] flex-shrink-0">
         <Link href="/messages" className="text-[var(--muted)] hover:text-[var(--text)] transition-colors text-sm">←</Link>
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-[var(--bg)]"
           style={{ background: conversation?.type === "group" ? "var(--math)" : "var(--ela)" }}>
@@ -126,10 +127,10 @@ export default function ChatPage() {
             <p className="text-[10px] text-[var(--muted)]">{conversation.participants.length} members</p>
           )}
         </div>
-      </header>
+        </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--ela)] rounded-full animate-spin" />
@@ -164,10 +165,10 @@ export default function ChatPage() {
           })
         )}
         <div ref={bottomRef} />
-      </div>
+        </div>
 
-      {/* Input */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[var(--border)]">
+        {/* Input */}
+        <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[var(--border)]">
         <div className="flex gap-2 items-end rounded-xl bg-[var(--s2)] border border-[var(--border)] p-2">
           <textarea
             ref={inputRef}
@@ -188,7 +189,8 @@ export default function ChatPage() {
           </button>
         </div>
         <p className="text-[10px] text-[var(--muted)] mt-1 px-1">Enter to send · Shift+Enter for new line</p>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }
