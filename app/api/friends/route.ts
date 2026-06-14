@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { ensureGameProfile } from "@/lib/game/usernames";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
+  const me = await ensureGameProfile(user.id);
 
   const [accepted, pendingReceived, pendingSent] = await Promise.all([
     prisma.friendConnection.findMany({
@@ -31,21 +33,30 @@ export async function GET() {
     return { connectionId: c.id, ...other };
   });
 
-  return NextResponse.json({ friends, pendingReceived, pendingSent });
+  return NextResponse.json({ me, friends, pendingReceived, pendingSent });
 }
 
-const RequestSchema = z.object({ username: z.string().min(3).max(20) });
+const RequestSchema = z.object({ username: z.string().min(3).max(100) });
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const body = await req.json();
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const target = await prisma.gameProfile.findUnique({ where: { username: parsed.data.username }, select: { userId: true } });
+  const lookup = parsed.data.username.trim().toLowerCase();
+  let target = await prisma.gameProfile.findUnique({ where: { username: lookup }, select: { userId: true } });
+  if (!target && lookup.includes("@")) {
+    const targetUser = await prisma.user.findUnique({ where: { email: lookup }, select: { id: true } });
+    if (targetUser) {
+      const profile = await ensureGameProfile(targetUser.id);
+      target = { userId: profile.userId };
+    }
+  }
+
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (target.userId === user.id) return NextResponse.json({ error: "Can't friend yourself" }, { status: 400 });
 

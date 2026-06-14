@@ -20,6 +20,7 @@ const TYPE_LABEL: Record<string, string> = {
 export default function StudyPlanPage() {
   const [days, setDays] = useState<DayPlan[]>([]);
   const [weekStart, setWeekStart] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
@@ -36,7 +37,11 @@ export default function StudyPlanPage() {
 
   async function generatePlan() {
     setGenerating(true);
-    const res = await fetch("/api/study-plan", { method: "POST" });
+    const res = await fetch("/api/study-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: prompt.trim() || undefined }),
+    });
     const data = await res.json();
     if (data.plan) {
       setDays(data.plan.days);
@@ -60,7 +65,7 @@ export default function StudyPlanPage() {
       </nav>
 
       <main className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-[var(--text)]">Study Plan</h1>
             <p className="text-sm text-[var(--muted)] mt-1">
@@ -70,6 +75,24 @@ export default function StudyPlanPage() {
           <Button variant="math" size="sm" loading={generating} onClick={generatePlan}>
             {days.length ? "Regenerate" : "Generate Plan"}
           </Button>
+        </div>
+
+        <div className="card p-4 flex flex-col gap-3">
+          <label htmlFor="plan-prompt" className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold">
+            What do you want this plan to focus on?
+          </label>
+          <textarea
+            id="plan-prompt"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="Example: I want more hard math, especially algebra and geometry. Keep weekends lighter."
+            className="w-full bg-[var(--s2)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none resize-none"
+          />
+          <p className="text-[11px] text-[var(--muted)]">
+            Include subjects, topics, difficulty, schedule, or anything you want the plan to prioritize.
+          </p>
         </div>
 
         {loading ? (
@@ -82,7 +105,7 @@ export default function StudyPlanPage() {
             <div>
               <p className="font-medium text-[var(--text)]">No plan yet</p>
               <p className="text-sm text-[var(--muted)] mt-1">
-                Generate a plan — it prioritizes your weakest topics automatically.
+                Tell us what you want, then generate a plan. It still prioritizes your weakest topics automatically.
               </p>
             </div>
             <Button variant="math" onClick={generatePlan} loading={generating}>Generate My Plan</Button>

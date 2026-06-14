@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 const SettingsSchema = z.object({
@@ -10,9 +10,9 @@ const SettingsSchema = z.object({
 });
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const subscription = await prisma.wordSubscription.findUnique({ where: { userId: user.id } });
 
@@ -27,9 +27,9 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const parsed = SettingsSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });

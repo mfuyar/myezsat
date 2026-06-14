@@ -6,11 +6,17 @@ import Button from "@/components/ui/Button";
 
 interface Friend { connectionId: string; id: string; name: string | null; gameProfile: { username: string; level: number; weeklyXP: number } | null }
 interface Pending { id: string; requester?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null }; receiver?: { id: string; name: string | null; gameProfile: { username: string; level: number } | null } }
+interface Me { username: string; level: number }
 
 export default function FriendsPage() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pendingReceived, setPendingReceived] = useState<Pending[]>([]);
   const [pendingSent, setPendingSent] = useState<Pending[]>([]);
+  const [me, setMe] = useState<Me | null>(null);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameResult, setUsernameResult] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const [searchResult, setSearchResult] = useState<string | null>(null);
@@ -21,6 +27,8 @@ export default function FriendsPage() {
     const res = await fetch("/api/friends");
     if (res.ok) {
       const d = await res.json();
+      setMe(d.me ?? null);
+      setUsernameDraft(d.me?.username ?? "");
       setFriends(d.friends ?? []);
       setPendingReceived(d.pendingReceived ?? []);
       setPendingSent(d.pendingSent ?? []);
@@ -42,6 +50,34 @@ export default function FriendsPage() {
     setSending(false);
     if (res.ok) { setSearchResult("Request sent!"); setSearch(""); load(); }
     else setSearchResult(d.error ?? "Error sending request");
+  }
+
+  async function saveUsername() {
+    const username = usernameDraft.trim().toLowerCase();
+    setUsernameResult(null);
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+      setUsernameResult("Use 3-20 lowercase letters, numbers, or underscores.");
+      return;
+    }
+
+    setUsernameSaving(true);
+    const res = await fetch("/api/game/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setUsernameSaving(false);
+
+    if (!res.ok) {
+      setUsernameResult(data.error ?? "Username is not available.");
+      return;
+    }
+
+    setMe(data.profile);
+    setUsernameDraft(data.profile.username);
+    setEditingUsername(false);
+    setUsernameResult("Username updated.");
   }
 
   async function respondRequest(connectionId: string, action: "accept" | "decline") {
@@ -79,12 +115,49 @@ export default function FriendsPage() {
           <p className="text-xs font-semibold text-[var(--muted)] uppercase tracking-widest">Add a Friend</p>
           <div className="flex gap-2">
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by username (e.g. necdet_4821)"
+              placeholder="Search by username or email"
               onKeyDown={(e) => e.key === "Enter" && sendRequest()}
               className="flex-1 bg-[var(--s2)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none" />
             <Button variant="math" size="sm" onClick={sendRequest} loading={sending}>Send</Button>
           </div>
           {searchResult && <p className={`text-xs ${searchResult.includes("sent") ? "text-green-400" : "text-red-400"}`}>{searchResult}</p>}
+          {me && (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs text-[var(--muted)]">
+                  Your username: <span className="font-mono text-[var(--text)]">@{me.username}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingUsername((value) => !value);
+                    setUsernameResult(null);
+                    setUsernameDraft(me.username);
+                  }}
+                  className="text-xs text-[var(--math)] hover:opacity-80"
+                >
+                  {editingUsername ? "Cancel" : "Edit"}
+                </button>
+              </div>
+              {editingUsername && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={usernameDraft}
+                    onChange={(e) => setUsernameDraft(e.target.value.toLowerCase())}
+                    placeholder="unique_username"
+                    className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
+                  />
+                  <Button variant="ela" size="sm" onClick={saveUsername} loading={usernameSaving}>Save</Button>
+                </div>
+              )}
+              {usernameResult && (
+                <p className={`text-xs ${usernameResult.includes("updated") ? "text-green-400" : "text-red-400"}`}>
+                  {usernameResult}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pending received */}

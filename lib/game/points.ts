@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { levelFromXP } from "./levels";
+import { uniqueUsername } from "./usernames";
 
 export const XP_RULES: Record<string, number> = {
   correct_easy:     5,
@@ -99,12 +100,8 @@ export async function awardXP(
 }
 
 async function generateUsername(userId: string): Promise<string> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
-  const base = (user?.name ?? "student").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "student";
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  const candidate = `${base}_${suffix}`;
-  const exists = await prisma.gameProfile.findUnique({ where: { username: candidate } });
-  return exists ? `${base}_${Math.floor(1000 + Math.random() * 9000)}` : candidate;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, name: true } });
+  return uniqueUsername(user?.email, user?.name);
 }
 
 function getMonday(d: Date): Date {

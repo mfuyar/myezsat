@@ -6,6 +6,7 @@ interface QuickActionsProps {
   subject: Subject;
   disabled: boolean;
   onAction: (text: string) => void;
+  onActivity?: () => void;
 }
 
 const MATH_ACTIONS = [
@@ -22,7 +23,7 @@ const ELA_ACTIONS = [
   "Explain the rule",
 ];
 
-export default function QuickActions({ subject, disabled, onAction }: QuickActionsProps) {
+export default function QuickActions({ subject, disabled, onAction, onActivity }: QuickActionsProps) {
   const actions = subject === "math" ? MATH_ACTIONS : ELA_ACTIONS;
   const color = subject === "math" ? "var(--math)" : "var(--ela)";
 
@@ -32,7 +33,10 @@ export default function QuickActions({ subject, disabled, onAction }: QuickActio
         <button
           key={a}
           disabled={disabled}
-          onClick={() => onAction(a)}
+          onClick={() => {
+            onActivity?.();
+            onAction(a);
+          }}
           className="px-3 py-1.5 rounded-full text-xs font-medium border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-opacity-60 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           style={{ ["--hover-color" as string]: color }}
         >

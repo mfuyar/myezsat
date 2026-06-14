@@ -56,7 +56,7 @@ export function useTTS() {
     async (text: string) => {
       if (!enabled) return;
 
-      // Cancel any previous request + audio before starting a new one
+      // Cancel any previous request + speech before starting a new one
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -85,14 +85,21 @@ export function useTTS() {
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
           audioRef.current = audio;
-          audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
-          audio.onerror = () => { setSpeaking(false); URL.revokeObjectURL(url); audioRef.current = null; };
+          audio.onended = () => {
+            setSpeaking(false);
+            URL.revokeObjectURL(url);
+            audioRef.current = null;
+          };
+          audio.onerror = () => {
+            setSpeaking(false);
+            URL.revokeObjectURL(url);
+            audioRef.current = null;
+          };
           await audio.play();
           return;
         }
-      } catch (err) {
-        // AbortError means we cancelled intentionally — don't fall back
-        if (err instanceof Error && err.name === "AbortError") return;
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
       }
 
       browserFallback(clean, controller);

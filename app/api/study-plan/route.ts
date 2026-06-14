@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser } from "@/lib/api/auth";
+import { z } from "zod";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -20,6 +21,36 @@ const MATH_TOPICS: Record<string, string> = {
   "statistics": "Statistics",
 };
 
+const PromptSchema = z.object({
+  prompt: z.string().max(500).optional(),
+});
+
+function parsePrompt(prompt: string) {
+  const lower = prompt.toLowerCase();
+  const wantsMath = /\b(math|algebra|geometry|trig|statistics|advanced|quadratic|linear|equation)\b/.test(lower);
+  const wantsEla = /\b(ela|english|reading|writing|grammar|punctuation|vocabulary|rhetoric|passage)\b/.test(lower);
+  const wantsHard = /\b(hard|harder|advanced|challenge|challenging|difficult)\b/.test(lower);
+  const wantsLight = /\b(light|lighter|easy|easier|less|short|quick|busy)\b/.test(lower);
+  const wantsHeavy = /\b(more|extra|intense|intensive|heavy|long|grind|daily)\b/.test(lower);
+
+  const topicHints = [
+    ...Object.entries(ELA_TOPICS),
+    ...Object.entries(MATH_TOPICS),
+  ]
+    .filter(([id, label]) => lower.includes(id.replace(/-/g, " ")) || lower.includes(label.toLowerCase()))
+    .map(([id]) => id);
+
+  return {
+    prompt,
+    wantsMath,
+    wantsEla,
+    wantsHard,
+    wantsLight,
+    wantsHeavy,
+    topicHints,
+  };
+}
+
 function getMonday(): Date {
   const d = new Date();
   const day = d.getDay();
@@ -30,18 +61,23 @@ function getMonday(): Date {
 }
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const plan = await prisma.studyPlan.findUnique({ where: { userId: user.id } });
   return NextResponse.json({ plan });
 }
 
-export async function POST() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function POST(req: Request) {
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
+
+  const body = await req.json().catch(() => ({}));
+  const parsed = PromptSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+  const preferences = parsePrompt(parsed.data.prompt?.trim() ?? "");
 
   // Get weak topics from practice history
   const attempts = await prisma.practiceAttempt.findMany({
@@ -73,10 +109,24 @@ export async function POST() {
 
   // Sort: unattempted first, then by accuracy ascending
   const sortFn = (a: typeof allElaTopics[0]) => a.accuracy === null ? -1 : a.accuracy;
-  const elaPool = [...allElaTopics].sort((a, b) => sortFn(a) - sortFn(b));
-  const mathPool = [...allMathTopics].sort((a, b) => sortFn(a) - sortFn(b));
+  const boostPromptTopics = (a: typeof allElaTopics[0]) => preferences.topicHints.includes(a.topicId) ? -2 : 0;
+  const elaPool = [...allElaTopics].sort((a, b) => (boostPromptTopics(a) + sortFn(a)) - (boostPromptTopics(b) + sortFn(b)));
+  const mathPool = [...allMathTopics].sort((a, b) => (boostPromptTopics(a) + sortFn(a)) - (boostPromptTopics(b) + sortFn(b)));
 
   const days: { day: string; type: string; subject: string; topicId: string; topicLabel: string; count: number; note: string }[] = [];
+  const requestedSubject =
+    preferences.wantsMath && !preferences.wantsEla ? "math" :
+    preferences.wantsEla && !preferences.wantsMath ? "ela" :
+    null;
+  const countBump = preferences.wantsHeavy ? 5 : preferences.wantsLight ? -5 : 0;
+  const intensityNote = preferences.wantsHard
+    ? " Aim for hard questions when available."
+    : preferences.wantsLight
+    ? " Keep this session short and focused."
+    : preferences.wantsHeavy
+    ? " Add extra reps if you have time."
+    : "";
+  const promptNote = preferences.prompt ? ` Goal: ${preferences.prompt.slice(0, 110)}${preferences.prompt.length > 110 ? "..." : ""}` : "";
 
   const templates = [
     { type: "practice",     subject: "ela",  pool: elaPool,  count: 10, note: "Focus on accuracy" },
@@ -90,16 +140,22 @@ export async function POST() {
 
   for (let i = 0; i < 7; i++) {
     const tmpl = templates[i];
-    const topicPool = tmpl.pool.filter((t) => t.subject === tmpl.subject);
+    const subject = requestedSubject ?? tmpl.subject;
+    const pool = subject === "math" ? mathPool : elaPool;
+    const topicPool = pool.filter((t) => t.subject === subject);
     const pick = topicPool[i % topicPool.length] ?? topicPool[0];
+    const count = Math.max(5, tmpl.count + countBump);
     days.push({
       day: DAYS[i],
       type: tmpl.type,
-      subject: tmpl.subject,
+      subject,
       topicId: tmpl.type === "mixed" || tmpl.type === "mistake-review" ? "all" : pick.topicId,
       topicLabel: tmpl.type === "mixed" ? "Mixed Practice" : tmpl.type === "mistake-review" ? "Mistake Review" : pick.label,
-      count: tmpl.count,
-      note: tmpl.note + (pick.accuracy !== null && pick.accuracy < 0.7 ? ` (${Math.round(pick.accuracy * 100)}% accuracy — needs work)` : ""),
+      count: tmpl.type === "mistake-review" ? 0 : count,
+      note: tmpl.note +
+        (pick.accuracy !== null && pick.accuracy < 0.7 ? ` (${Math.round(pick.accuracy * 100)}% accuracy — needs work)` : "") +
+        intensityNote +
+        (i === 0 ? promptNote : ""),
     });
   }
 

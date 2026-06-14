@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/api/auth";
 import { z } from "zod";
-
-async function requireAdmin(userId: string) {
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  return u?.role === "admin";
-}
 
 const ActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("suspend"),   reason: z.string().min(1).max(500) }),
@@ -17,10 +12,9 @@ const ActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!await requireAdmin(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireApiRole(["admin"]);
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { id } = await params;
   if (id === user.id) return NextResponse.json({ error: "Cannot modify your own account" }, { status: 400 });

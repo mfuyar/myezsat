@@ -1,36 +1,50 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-
-async function buildUsername(name: string | null, userId: string): Promise<string> {
-  const base = (name ?? "student").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "student";
-  for (let i = 0; i < 10; i++) {
-    const username = `${base}_${Math.floor(1000 + Math.random() * 9000)}`;
-    const exists = await prisma.gameProfile.findUnique({ where: { username } });
-    if (!exists) return username;
-  }
-  return `user_${userId.slice(0, 8)}`;
-}
+import { uniqueUsername } from "@/lib/game/usernames";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name, email } = await req.json();
+  const { name, email, agreedToTerms } = await req.json();
+  if (agreedToTerms !== true) {
+    return NextResponse.json({ error: "Terms agreement is required." }, { status: 400 });
+  }
+
   const displayName = name ?? user.user_metadata?.name ?? null;
 
   const existing = await prisma.user.findUnique({ where: { id: user.id } });
-  if (existing) return NextResponse.json({ user: existing });
+  if (existing) {
+    if (existing.deletedAt) {
+      return NextResponse.json({ error: "Account deleted" }, { status: 403 });
+    }
+    if (existing.suspended) {
+      return NextResponse.json({ error: "Account suspended" }, { status: 403 });
+    }
 
-  const username = await buildUsername(displayName, user.id);
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        agreedToTerms: true,
+        agreedAt: existing.agreedAt ?? new Date(),
+      },
+    });
+    return NextResponse.json({ user: updated });
+  }
+
+  const userEmail = email ?? user.email!;
+  const username = await uniqueUsername(userEmail, displayName);
 
   const newUser = await prisma.user.create({
     data: {
       id: user.id,
-      email: email ?? user.email!,
+      email: userEmail,
       name: displayName,
       avatarUrl: user.user_metadata?.avatar_url ?? null,
+      agreedToTerms: true,
+      agreedAt: new Date(),
       stats: { create: {} },
       streak: { create: {} },
       gameProfile: { create: { username } },

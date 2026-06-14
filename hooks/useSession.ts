@@ -67,6 +67,8 @@ export function useSession({ sessionId, onEnd }: UseSessionOptions) {
   }, [saveDuration]);
 
   const togglePause = useCallback(() => setPaused((p) => !p), []);
+  const pause = useCallback(() => setPaused(true), []);
+  const resume = useCallback(() => setPaused(false), []);
 
   const addScore = useCallback((isCorrect: boolean, earnedXP: number) => {
     setTotal((t) => {
@@ -89,6 +91,8 @@ export function useSession({ sessionId, onEnd }: UseSessionOptions) {
     timeLeft,
     paused,
     togglePause,
+    pause,
+    resume,
     xp,
     correct,
     total,

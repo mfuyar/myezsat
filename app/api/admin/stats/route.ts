@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-
-async function requireAdmin(userId: string) {
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  return u?.role === "admin" || u?.role === "tutor";
-}
+import { requireApiRole } from "@/lib/api/auth";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!await requireAdmin(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireApiRole(["admin", "tutor"]);
+  if (auth.response) return auth.response;
 
   const [totalQ, totalUsers, totalSessions, topicBreakdown] = await Promise.all([
     prisma.sATQuestion.count(),

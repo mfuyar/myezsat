@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { awardXP } from "@/lib/game/points";
 import { updateQuestProgress } from "@/lib/game/quests";
 import { checkAndAwardBadges } from "@/lib/game/badges";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 export async function GET(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { searchParams } = new URL(req.url);
   const topicId = searchParams.get("topicId");
@@ -43,9 +43,9 @@ export async function GET(req: Request) {
 const MasterSchema = z.object({ attemptId: z.string() });
 
 export async function PATCH(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const body = await req.json();
   const parsed = MasterSchema.safeParse(body);

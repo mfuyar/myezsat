@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { genai, toGeminiHistory } from "@/lib/ai/stream";
 import { MATH_SYSTEM, ELA_SYSTEM } from "@/lib/ai/prompts";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 const ChatSchema = z.object({
@@ -19,17 +19,21 @@ const ChatSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const body = await req.json();
   const parsed = ChatSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { sessionId, messages, subject, topicLabel, difficulty } = parsed.data;
+
+  const session = await prisma.studySession.findFirst({
+    where: { id: sessionId, userId: user.id },
+    select: { id: true },
+  });
+  if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
   const latestScore = await prisma.scoreEntry.findFirst({
     where: { userId: user.id },

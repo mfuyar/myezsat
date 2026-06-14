@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { awardXP } from "@/lib/game/points";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 const Schema = z.object({ questId: z.string() });
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const body = await req.json();
   const parsed = Schema.safeParse(body);

@@ -58,7 +58,7 @@ export default function MessageBubble({ message, subject, streaming }: MessageBu
     return (
       <div className="flex justify-end msg-enter">
         <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-tr-sm bg-[var(--s3)] border border-[var(--border)]">
-          <p className="text-sm text-[var(--text)] whitespace-pre-wrap">{message.content}</p>
+          <p className="text-base text-[var(--text)] whitespace-pre-wrap leading-relaxed">{message.content}</p>
         </div>
       </div>
     );
@@ -78,7 +78,7 @@ export default function MessageBubble({ message, subject, streaming }: MessageBu
         </p>
         <p
           className={cn(
-            "text-sm text-[var(--text)] whitespace-pre-wrap leading-relaxed",
+            "text-base text-[var(--text)] whitespace-pre-wrap leading-relaxed",
             streaming && message.content === "" && "streaming-cursor"
           )}
         >

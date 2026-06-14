@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { awardXP } from "@/lib/game/points";
 import { checkAndAwardBadges } from "@/lib/game/badges";
+import { requireApiUser, forbidden } from "@/lib/api/auth";
 import { z } from "zod";
 
 const Schema = z.object({
@@ -11,9 +11,9 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { id } = await params;
   const body = await req.json();
@@ -30,7 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!challenge || challenge.status !== "active") return NextResponse.json({ error: "Invalid challenge" }, { status: 400 });
 
   const myEntry = challenge.participants.find((p) => p.userId === user.id);
-  if (!myEntry) return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+  if (!myEntry) return forbidden();
   if (myEntry.completedAt) return NextResponse.json({ error: "Already submitted" }, { status: 400 });
 
   const questionIds = challenge.questionIds as string[];

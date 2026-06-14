@@ -1,18 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiRole } from "@/lib/api/auth";
 import { z } from "zod";
 
-async function requireAdmin(userId: string) {
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-  return u?.role === "admin" || u?.role === "tutor";
-}
-
 export async function GET(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!await requireAdmin(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireApiRole(["admin", "tutor"]);
+  if (auth.response) return auth.response;
 
   const { searchParams } = new URL(req.url);
   const page = parseInt(searchParams.get("page") ?? "1");
@@ -51,10 +44,8 @@ const CreateSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!await requireAdmin(user.id)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireApiRole(["admin", "tutor"]);
+  if (auth.response) return auth.response;
 
   const body = await req.json();
   const parsed = CreateSchema.safeParse(body);

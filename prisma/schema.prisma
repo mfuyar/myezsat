@@ -524,6 +524,7 @@ model ConversationParticipant {
   id             String    @id @default(cuid())
   conversationId String
   userId         String
+  status         String    @default("accepted")
   joinedAt       DateTime  @default(now())
   lastReadAt     DateTime?
 
@@ -532,6 +533,7 @@ model ConversationParticipant {
 
   @@unique([conversationId, userId])
   @@index([userId])
+  @@index([userId, status])
 }
 
 model ConversationMessage {

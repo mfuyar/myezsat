@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser, forbidden } from "@/lib/api/auth";
 import { z } from "zod";
 
 async function getParticipant(conversationId: string, userId: string) {
@@ -10,13 +10,13 @@ async function getParticipant(conversationId: string, userId: string) {
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { id } = await params;
   const participant = await getParticipant(id, user.id);
-  if (!participant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!participant || participant.status !== "accepted") return forbidden();
 
   const { searchParams } = new URL(req.url);
   const before = searchParams.get("before");
@@ -53,13 +53,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 const SendSchema = z.object({ content: z.string().min(1).max(2000) });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { id } = await params;
   const participant = await getParticipant(id, user.id);
-  if (!participant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!participant || participant.status !== "accepted") return forbidden();
 
   const body = await req.json();
   const parsed = SendSchema.safeParse(body);
@@ -74,4 +74,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   ]);
 
   return NextResponse.json({ message }, { status: 201 });
+}
+
+const InviteActionSchema = z.object({ action: z.enum(["accept", "decline"]) });
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
+
+  const { id } = await params;
+  const participant = await getParticipant(id, user.id);
+  if (!participant || participant.status !== "pending") {
+    return NextResponse.json({ error: "No pending invite" }, { status: 404 });
+  }
+
+  const parsed = InviteActionSchema.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  if (parsed.data.action === "decline") {
+    await prisma.conversationParticipant.delete({ where: { id: participant.id } });
+    return NextResponse.json({ ok: true });
+  }
+
+  const updated = await prisma.conversationParticipant.update({
+    where: { id: participant.id },
+    data: { status: "accepted", joinedAt: new Date(), lastReadAt: new Date() },
+  });
+
+  await prisma.conversation.update({ where: { id }, data: { updatedAt: new Date() } });
+  return NextResponse.json({ participant: updated });
 }

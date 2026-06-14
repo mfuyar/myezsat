@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireApiUser } from "@/lib/api/auth";
 import { genai } from "@/lib/ai/stream";
 
 // Gemini TTS voices — Kore is clear and professional (good teacher voice)
@@ -26,9 +26,8 @@ function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buf
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
 
   const { text } = await req.json();
   if (!text || typeof text !== "string") {

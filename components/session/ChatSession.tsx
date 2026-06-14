@@ -17,6 +17,8 @@ import Button from "@/components/ui/Button";
 import { formatXP } from "@/lib/utils";
 import type { StudySession } from "@/types";
 
+const INACTIVITY_MS = 3 * 60 * 1000;
+
 interface ChatSessionProps {
   session: StudySession;
 }
@@ -70,6 +72,33 @@ export default function ChatSession({ session }: ChatSessionProps) {
   const sessionHook = useSession({ sessionId: session.id, onEnd: endSession });
   sessionRef.current = sessionHook;
 
+  const autoPausedRef = useRef(false);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = null;
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    clearInactivityTimer();
+    if (summary?.open) return;
+
+    inactivityTimerRef.current = setTimeout(() => {
+      if (sessionRef.current?.paused) return;
+      autoPausedRef.current = true;
+      sessionRef.current?.pause();
+    }, INACTIVITY_MS);
+  }, [clearInactivityTimer, summary?.open]);
+
+  const markActivity = useCallback(() => {
+    if (autoPausedRef.current) {
+      autoPausedRef.current = false;
+      sessionRef.current?.resume();
+    }
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
+
   const chatHook = useChat({
     sessionId: session.id,
     subject: session.subject,
@@ -78,17 +107,82 @@ export default function ChatSession({ session }: ChatSessionProps) {
     onScoreUpdate: sessionHook.addScore,
   });
 
+  useEffect(() => {
+    resetInactivityTimer();
+    return clearInactivityTimer;
+  }, [resetInactivityTimer, clearInactivityTimer]);
+
+  useEffect(() => {
+    if (chatHook.streaming) markActivity();
+  }, [chatHook.messages, chatHook.streaming, markActivity]);
+
+  const handleTimerToggle = useCallback(() => {
+    autoPausedRef.current = false;
+    if (sessionHook.paused) {
+      sessionHook.resume();
+      resetInactivityTimer();
+    } else {
+      clearInactivityTimer();
+      sessionHook.pause();
+    }
+  }, [clearInactivityTimer, resetInactivityTimer, sessionHook]);
+
   // Auto-speak AI responses when teacher voice is enabled
   const messagesRef = useRef(chatHook.messages);
   messagesRef.current = chatHook.messages;
   const prevStreamingRef = useRef(false);
+  const spokenMessageRef = useRef<number | null>(null);
+  const speechTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (prevStreamingRef.current && !chatHook.streaming) {
-      const last = messagesRef.current[messagesRef.current.length - 1];
-      if (last?.role === "assistant" && last.content) tts.speak(last.content);
+    const lastIndex = messagesRef.current.length - 1;
+    const last = messagesRef.current[lastIndex];
+
+    if (!tts.enabled) {
+      spokenMessageRef.current = null;
+      if (speechTimerRef.current) clearTimeout(speechTimerRef.current);
+      speechTimerRef.current = null;
+      prevStreamingRef.current = chatHook.streaming;
+      return;
     }
+
+    if (
+      chatHook.streaming &&
+      last?.role === "assistant" &&
+      last.content.length >= 60 &&
+      spokenMessageRef.current !== lastIndex &&
+      !speechTimerRef.current
+    ) {
+      speechTimerRef.current = setTimeout(() => {
+        speechTimerRef.current = null;
+        const current = messagesRef.current[lastIndex];
+        if (current?.role === "assistant" && current.content) {
+          spokenMessageRef.current = lastIndex;
+          tts.speak(current.content);
+        }
+      }, 800);
+    }
+
+    if (prevStreamingRef.current && !chatHook.streaming) {
+      if (speechTimerRef.current) {
+        clearTimeout(speechTimerRef.current);
+        speechTimerRef.current = null;
+      }
+
+      if (last?.role === "assistant" && last.content && spokenMessageRef.current !== lastIndex) {
+        spokenMessageRef.current = lastIndex;
+        tts.speak(last.content);
+      }
+    }
+
     prevStreamingRef.current = chatHook.streaming;
-  }, [chatHook.streaming, tts.speak]);
+  }, [chatHook.messages, chatHook.streaming, tts.enabled, tts.speak]);
+
+  useEffect(() => {
+    return () => {
+      if (speechTimerRef.current) clearTimeout(speechTimerRef.current);
+    };
+  }, []);
 
   const isMath = session.subject === "math";
   const color = isMath ? "var(--math)" : "var(--ela)";
@@ -129,7 +223,7 @@ export default function ChatSession({ session }: ChatSessionProps) {
           <SessionTimer
             timeLeft={sessionHook.timeLeft}
             paused={sessionHook.paused}
-            onToggle={sessionHook.togglePause}
+            onToggle={handleTimerToggle}
           />
           <Button variant="ghost" size="sm" onClick={endSession}>
             End
@@ -152,11 +246,13 @@ export default function ChatSession({ session }: ChatSessionProps) {
           subject={session.subject}
           disabled={chatHook.streaming}
           onAction={chatHook.send}
+          onActivity={markActivity}
         />
         <ChatInput
           subject={session.subject}
           disabled={chatHook.streaming}
           onSend={chatHook.send}
+          onActivity={markActivity}
         />
       </div>
 

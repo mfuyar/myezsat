@@ -8,19 +8,21 @@ interface ChatInputProps {
   subject: Subject;
   disabled: boolean;
   onSend: (text: string) => void;
+  onActivity?: () => void;
 }
 
-export default function ChatInput({ subject, disabled, onSend }: ChatInputProps) {
+export default function ChatInput({ subject, disabled, onSend, onActivity }: ChatInputProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const color = subject === "math" ? "var(--math)" : "var(--ela)";
 
   const handleTranscript = useCallback((text: string) => {
+    onActivity?.();
     if (!ref.current) return;
     ref.current.value = ref.current.value ? ref.current.value + " " + text : text;
     ref.current.style.height = "auto";
     ref.current.style.height = Math.min(ref.current.scrollHeight, 120) + "px";
     ref.current.focus();
-  }, []);
+  }, [onActivity]);
 
   const { status: sttStatus, toggle: toggleMic } = useSTT(handleTranscript);
   const isListening = sttStatus === "listening";
@@ -31,12 +33,14 @@ export default function ChatInput({ subject, disabled, onSend }: ChatInputProps)
   }, [disabled]);
 
   function autoResize() {
+    onActivity?.();
     if (!ref.current) return;
     ref.current.style.height = "auto";
     ref.current.style.height = Math.min(ref.current.scrollHeight, 120) + "px";
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    onActivity?.();
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
@@ -46,6 +50,7 @@ export default function ChatInput({ subject, disabled, onSend }: ChatInputProps)
   function submit() {
     const text = ref.current?.value.trim();
     if (!text || disabled) return;
+    onActivity?.();
     onSend(text);
     if (ref.current) {
       ref.current.value = "";
@@ -64,6 +69,7 @@ export default function ChatInput({ subject, disabled, onSend }: ChatInputProps)
           rows={1}
           placeholder={isListening ? "Listening…" : "Ask anything…"}
           disabled={disabled}
+          onFocus={onActivity}
           onInput={autoResize}
           onKeyDown={handleKeyDown}
           className="flex-1 bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] resize-none focus:outline-none py-1 px-1 leading-relaxed"
@@ -73,7 +79,10 @@ export default function ChatInput({ subject, disabled, onSend }: ChatInputProps)
         {micSupported && (
           <button
             type="button"
-            onClick={toggleMic}
+            onClick={() => {
+              onActivity?.();
+              toggleMic();
+            }}
             disabled={disabled}
             title={isListening ? "Stop recording" : "Voice input"}
             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed transition-all"

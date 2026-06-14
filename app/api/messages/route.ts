@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const participations = await prisma.conversationParticipant.findMany({
     where: { userId: user.id },
@@ -23,9 +23,22 @@ export async function GET() {
     orderBy: { conversation: { updatedAt: "desc" } },
   });
 
-  const conversations = participations.map((p) => {
+  const pendingGroupInvites = participations
+    .filter((p) => p.status === "pending" && p.conversation.type === "group")
+    .map((p) => ({
+      id: p.conversation.id,
+      name: p.conversation.name ?? "Group Chat",
+      participants: p.conversation.participants.map((x) => ({
+        userId: x.userId,
+        username: x.user.gameProfile?.username ?? x.user.name ?? "?",
+      })),
+      createdAt: p.conversation.createdAt,
+    }));
+
+  const conversations = participations.filter((p) => p.status === "accepted").map((p) => {
     const conv = p.conversation;
-    const others = conv.participants.filter((x) => x.userId !== user.id);
+    const acceptedParticipants = conv.participants.filter((x) => x.status === "accepted");
+    const others = acceptedParticipants.filter((x) => x.userId !== user.id);
     const lastMsg = conv.messages[0] ?? null;
     const unread = lastMsg && p.lastReadAt ? new Date(lastMsg.createdAt) > new Date(p.lastReadAt) : !!lastMsg;
 
@@ -33,7 +46,7 @@ export async function GET() {
       id: conv.id,
       type: conv.type,
       name: conv.type === "group" ? conv.name : others[0]?.user.gameProfile?.username ?? others[0]?.user.name ?? "Unknown",
-      participants: conv.participants.map((x) => ({
+      participants: acceptedParticipants.map((x) => ({
         userId: x.userId,
         username: x.user.gameProfile?.username ?? x.user.name ?? "?",
       })),
@@ -43,7 +56,7 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ conversations });
+  return NextResponse.json({ conversations, pendingGroupInvites });
 }
 
 const CreateSchema = z.object({
@@ -53,9 +66,9 @@ const CreateSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const body = await req.json();
   const parsed = CreateSchema.safeParse(body);
@@ -76,16 +89,18 @@ export async function POST(req: Request) {
     if (existing) return NextResponse.json({ conversation: existing, existing: true });
   }
 
-  // Verify all participants are friends (for DMs) — skip check for group chats by tutor/admin
-  if (type === "dm") {
-    const friendConn = await prisma.friendConnection.findFirst({
-      where: { OR: [{ requesterId: user.id, receiverId: participantIds[0] }, { requesterId: participantIds[0], receiverId: user.id }], status: "accepted" },
+  // Verify participants are accepted friends unless the creator is staff.
+  if (user.role !== "admin" && user.role !== "tutor") {
+    const friendCount = await prisma.friendConnection.count({
+      where: {
+        status: "accepted",
+        OR: participantIds.map((id) => ({ requesterId: user.id, receiverId: id })).concat(
+          participantIds.map((id) => ({ requesterId: id, receiverId: user.id }))
+        ),
+      },
     });
-    if (!friendConn) {
-      const dbUser = await prisma.user.findUnique({ where: { id: user.id }, select: { role: true } });
-      if (dbUser?.role !== "admin" && dbUser?.role !== "tutor") {
-        return NextResponse.json({ error: "You can only message friends" }, { status: 403 });
-      }
+    if (friendCount < participantIds.length) {
+      return NextResponse.json({ error: "You can only message accepted friends" }, { status: 403 });
     }
   }
 
@@ -93,7 +108,12 @@ export async function POST(req: Request) {
     data: {
       type,
       name: type === "group" ? (name ?? "Group Chat") : null,
-      participants: { create: allIds.map((id) => ({ userId: id })) },
+      participants: {
+        create: allIds.map((id) => ({
+          userId: id,
+          status: type === "group" && id !== user.id ? "pending" : "accepted",
+        })),
+      },
     },
   });
 

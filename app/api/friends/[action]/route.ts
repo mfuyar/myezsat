@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { awardXP } from "@/lib/game/points";
 import { checkAndAwardBadges } from "@/lib/game/badges";
+import { requireApiUser, forbidden } from "@/lib/api/auth";
 
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
 
   const { action } = await params;
   const { connectionId } = await req.json();
@@ -16,7 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
   if (!connection) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (action === "accept") {
-    if (connection.receiverId !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (connection.receiverId !== user.id) return forbidden();
     await prisma.friendConnection.update({ where: { id: connectionId }, data: { status: "accepted" } });
     // Award "first_friend" badge to both
     await Promise.all([
@@ -29,21 +29,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
   }
 
   if (action === "decline") {
-    if (connection.receiverId !== user.id) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (connection.receiverId !== user.id) return forbidden();
     await prisma.friendConnection.delete({ where: { id: connectionId } });
     return NextResponse.json({ ok: true });
   }
 
   if (action === "remove") {
     const isParticipant = connection.requesterId === user.id || connection.receiverId === user.id;
-    if (!isParticipant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!isParticipant) return forbidden();
     await prisma.friendConnection.delete({ where: { id: connectionId } });
     return NextResponse.json({ ok: true });
   }
 
   if (action === "block") {
     const isParticipant = connection.requesterId === user.id || connection.receiverId === user.id;
-    if (!isParticipant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!isParticipant) return forbidden();
     await prisma.friendConnection.update({ where: { id: connectionId }, data: { status: "blocked" } });
     return NextResponse.json({ ok: true });
   }
