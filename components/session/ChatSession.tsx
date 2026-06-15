@@ -18,6 +18,8 @@ import { formatXP } from "@/lib/utils";
 import type { StudySession } from "@/types";
 
 const INACTIVITY_MS = 3 * 60 * 1000;
+const FAST_SPEECH_DELAY_MS = 0;
+const FAST_SPEECH_MIN_CHARS = 12;
 
 interface ChatSessionProps {
   session: StudySession;
@@ -30,6 +32,7 @@ interface SummaryState {
   total: number;
   duration: number;
   streak: number;
+  streakEarned: boolean;
 }
 
 export default function ChatSession({ session }: ChatSessionProps) {
@@ -66,6 +69,7 @@ export default function ChatSession({ session }: ChatSessionProps) {
       total: s.total,
       duration: s.elapsed,
       streak: data.streak ?? 0,
+      streakEarned: data.streakEarned ?? false,
     });
   }, [session.id]);
 
@@ -112,10 +116,6 @@ export default function ChatSession({ session }: ChatSessionProps) {
     return clearInactivityTimer;
   }, [resetInactivityTimer, clearInactivityTimer]);
 
-  useEffect(() => {
-    if (chatHook.streaming) markActivity();
-  }, [chatHook.messages, chatHook.streaming, markActivity]);
-
   const handleTimerToggle = useCallback(() => {
     autoPausedRef.current = false;
     if (sessionHook.paused) {
@@ -126,6 +126,11 @@ export default function ChatSession({ session }: ChatSessionProps) {
       sessionHook.pause();
     }
   }, [clearInactivityTimer, resetInactivityTimer, sessionHook]);
+
+  const sendWithVoiceWarmup = useCallback((text: string) => {
+    markActivity();
+    chatHook.send(text);
+  }, [chatHook, markActivity]);
 
   // Auto-speak AI responses when teacher voice is enabled
   const messagesRef = useRef(chatHook.messages);
@@ -149,7 +154,7 @@ export default function ChatSession({ session }: ChatSessionProps) {
     if (
       chatHook.streaming &&
       last?.role === "assistant" &&
-      last.content.length >= 60 &&
+      (last.content.length >= FAST_SPEECH_MIN_CHARS || /[.!?]\s$/.test(last.content)) &&
       spokenMessageRef.current !== lastIndex &&
       !speechTimerRef.current
     ) {
@@ -160,7 +165,7 @@ export default function ChatSession({ session }: ChatSessionProps) {
           spokenMessageRef.current = lastIndex;
           tts.speak(current.content);
         }
-      }, 800);
+      }, FAST_SPEECH_DELAY_MS);
     }
 
     if (prevStreamingRef.current && !chatHook.streaming) {
@@ -169,14 +174,18 @@ export default function ChatSession({ session }: ChatSessionProps) {
         speechTimerRef.current = null;
       }
 
-      if (last?.role === "assistant" && last.content && spokenMessageRef.current !== lastIndex) {
-        spokenMessageRef.current = lastIndex;
-        tts.speak(last.content);
+      if (last?.role === "assistant" && last.content) {
+        if (spokenMessageRef.current === lastIndex) {
+          tts.continueSpeaking(last.content);
+        } else {
+          spokenMessageRef.current = lastIndex;
+          tts.speak(last.content);
+        }
       }
     }
 
     prevStreamingRef.current = chatHook.streaming;
-  }, [chatHook.messages, chatHook.streaming, tts.enabled, tts.speak]);
+  }, [chatHook.messages, chatHook.streaming, tts.enabled, tts.speak, tts.continueSpeaking]);
 
   useEffect(() => {
     return () => {
@@ -245,13 +254,13 @@ export default function ChatSession({ session }: ChatSessionProps) {
         <QuickActions
           subject={session.subject}
           disabled={chatHook.streaming}
-          onAction={chatHook.send}
+          onAction={sendWithVoiceWarmup}
           onActivity={markActivity}
         />
         <ChatInput
           subject={session.subject}
           disabled={chatHook.streaming}
-          onSend={chatHook.send}
+          onSend={sendWithVoiceWarmup}
           onActivity={markActivity}
         />
       </div>
@@ -282,10 +291,17 @@ export default function ChatSession({ session }: ChatSessionProps) {
                 </p>
               </div>
               <div className="card p-3">
-                <p className="text-[10px] text-[var(--muted)] uppercase mb-1">Streak</p>
-                <p className="font-mono font-semibold text-[var(--text)]">🔥 {summary.streak}</p>
+              <p className="text-[10px] text-[var(--muted)] uppercase mb-1">Streak</p>
+                <p className="font-mono font-semibold text-[var(--text)]">
+                  {summary.streakEarned ? "🔥" : "○"} {summary.streak}
+                </p>
               </div>
             </div>
+            {!summary.streakEarned && (
+              <p className="text-xs text-[var(--muted)]">
+                Streak credit unlocks only after completing the full 60-minute session.
+              </p>
+            )}
             <Button
               variant={isMath ? "math" : "ela"}
               size="lg"

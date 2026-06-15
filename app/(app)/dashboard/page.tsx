@@ -4,12 +4,10 @@ import { prisma } from "@/lib/prisma";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import SessionCard from "@/components/dashboard/SessionCard";
 import StatsRow from "@/components/dashboard/StatsRow";
-import AccuracyBar from "@/components/dashboard/AccuracyBar";
 import ScoreSection from "@/components/dashboard/ScoreSection";
+import RecentSessions from "@/components/dashboard/RecentSessions";
 import GameSection from "@/components/game/GameSection";
-import Badge from "@/components/ui/Badge";
 import { MATH_TOPICS, ELA_TOPICS } from "@/types";
-import { formatDuration, pct } from "@/lib/utils";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -24,36 +22,143 @@ export default async function DashboardPage() {
     prisma.userStats.findUnique({ where: { userId: user.id } }),
     prisma.streak.findUnique({ where: { userId: user.id } }),
     prisma.studySession.findMany({
-      where: { userId: user.id, completed: true },
+      where: {
+        userId: user.id,
+        completed: true,
+      },
       orderBy: { endedAt: "desc" },
       take: 5,
+      include: {
+        messages: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            role: true,
+            content: true,
+            createdAt: true,
+          },
+        },
+      },
     }),
   ]);
 
   const dayParity = new Date().getDate() % 2 === 0;
-  const hasAccuracy = (stats?.mathTotal ?? 0) > 0 || (stats?.elaTotal ?? 0) > 0;
+  const isStaff = dbUser?.role === "admin" || dbUser?.role === "tutor";
+  const recentSessionItems = recentSessions.map((session) => ({
+    id: session.id,
+    subject: session.subject,
+    topicLabel: session.topicLabel,
+    durationSec: session.durationSec,
+    xpEarned: session.xpEarned,
+    correct: session.correct,
+    total: session.total,
+    endedAt: session.endedAt?.toISOString() ?? null,
+    messages: session.messages.map((message) => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+    })),
+  }));
+
+  const studyNav = [
+    { href: "/practice", label: "Practice", icon: "P" },
+    { href: "/mistakes", label: "Mistakes", icon: "M" },
+    { href: "/study-plan", label: "Study Plan", icon: "S" },
+    { href: "/study-tools", label: "Tools", icon: "T" },
+  ];
+  const progressNav = [
+    { href: "/progress", label: "Progress" },
+    { href: "/leaderboard", label: "Leaderboard" },
+    { href: "/badges", label: "Badges" },
+  ];
+  const communityNav = [
+    { href: "/messages", label: "Messages" },
+    { href: "/friends", label: "Friends" },
+  ];
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       {/* Top nav */}
-      <nav className="border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="font-serif italic text-xl text-[var(--text)] hover:opacity-80 transition-opacity">myezsat</Link>
-        <div className="flex items-center gap-4">
-          <Link href="/practice"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Practice</Link>
-          <Link href="/mistakes"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Mistakes</Link>
-          <Link href="/messages"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Messages</Link>
-          <Link href="/leaderboard" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Leaderboard</Link>
-          <Link href="/friends"     className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Friends</Link>
-          <Link href="/badges"      className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Badges</Link>
-          <Link href="/study-plan"  className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Study Plan</Link>
-          <Link href="/progress"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Progress</Link>
-          <Link href="/settings"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Settings</Link>
-          {dbUser?.role === "admin" || dbUser?.role === "tutor" ? (
-            <Link href="/admin" className="text-sm font-medium" style={{ color: "var(--math)" }}>Admin</Link>
-          ) : null}
-          <form action="/api/auth/signout" method="POST">
-            <button className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Sign out</button>
-          </form>
+      <nav className="border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/" className="font-serif italic text-2xl text-[var(--text)] hover:opacity-80 transition-opacity">
+              myezsat
+            </Link>
+            <Link
+              href="/practice"
+              className="rounded-full px-4 py-2 text-sm font-semibold text-[var(--bg)] transition-opacity hover:opacity-90 lg:hidden"
+              style={{ background: "var(--ela)" }}
+            >
+              Start Practice
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--s1)] p-1.5">
+              {studyNav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--s2)]"
+                >
+                  <span
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-[var(--bg)]"
+                    style={{ background: item.href === "/practice" ? "var(--ela)" : "var(--math)" }}
+                  >
+                    {item.icon}
+                  </span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--s1)] p-1.5">
+              {progressNav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--s2)] hover:text-[var(--text)]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <span className="mx-1 hidden h-5 w-px bg-[var(--border)] sm:block" />
+              {communityNav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--s2)] hover:text-[var(--text)]"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--s1)] p-1.5">
+              <Link
+                href="/settings"
+                className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--s2)] hover:text-[var(--text)]"
+              >
+                Settings
+              </Link>
+              {isStaff ? (
+                <Link
+                  href="/admin"
+                  className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-semibold transition-colors hover:bg-[var(--math-bg)]"
+                  style={{ color: "var(--math)" }}
+                >
+                  Admin
+                </Link>
+              ) : null}
+              <form action="/api/auth/signout" method="POST">
+                <button className="inline-flex h-9 items-center rounded-xl px-3 text-sm font-medium text-[var(--muted)] transition-colors hover:bg-[var(--s2)] hover:text-[var(--text)]">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -105,60 +210,7 @@ export default async function DashboardPage() {
 
         <ScoreSection />
 
-        {hasAccuracy && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(stats?.mathTotal ?? 0) > 0 && (
-              <AccuracyBar subject="math" correct={stats!.mathCorrect} total={stats!.mathTotal} />
-            )}
-            {(stats?.elaTotal ?? 0) > 0 && (
-              <AccuracyBar subject="ela" correct={stats!.elaCorrect} total={stats!.elaTotal} />
-            )}
-          </div>
-        )}
-
-        {/* Recent Sessions */}
-        {recentSessions.length > 0 && (
-          <section>
-            <h2 className="text-xs uppercase tracking-widest text-[var(--muted)] font-semibold mb-3">
-              Recent Sessions
-            </h2>
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    {["Subject", "Topic", "Duration", "XP", "Accuracy"].map((h) => (
-                      <th key={h} className="text-left px-4 py-3 text-xs text-[var(--muted)] font-medium uppercase tracking-wide">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentSessions.map((s, i) => (
-                    <tr
-                      key={s.id}
-                      className={i < recentSessions.length - 1 ? "border-b border-[var(--border)]" : ""}
-                    >
-                      <td className="px-4 py-3">
-                        <Badge variant={s.subject as "math" | "ela"}>
-                          {s.subject === "math" ? "Math" : "ELA"}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-[var(--text)]">{s.topicLabel}</td>
-                      <td className="px-4 py-3 font-mono text-[var(--muted)]">
-                        {formatDuration(s.durationSec)}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[var(--math)]">+{s.xpEarned}</td>
-                      <td className="px-4 py-3 font-mono text-[var(--muted)]">
-                        {pct(s.correct, s.total)}%
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
+        <RecentSessions sessions={recentSessionItems} />
 
         <footer className="text-center text-xs text-[var(--muted)] py-4 border-t border-[var(--border)]">
           Target: 750–800 Math · 700+ ELA — Ivy League competitive range

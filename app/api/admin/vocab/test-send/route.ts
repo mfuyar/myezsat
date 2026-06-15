@@ -24,13 +24,20 @@ export async function POST(req: Request) {
 
   if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const result = await sendVocabEmail({
-    userId: user.id,
-    to: parsed.data.email ?? dbUser.email,
-    name: dbUser.name,
-    dryRun: parsed.data.dryRun ?? false,
-    updateSubscription: false,
-  });
+  try {
+    const result = await sendVocabEmail({
+      userId: user.id,
+      to: parsed.data.email ?? dbUser.email,
+      name: dbUser.name,
+      dryRun: parsed.data.dryRun ?? false,
+      updateSubscription: false,
+    });
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not send test email." },
+      { status: 500 }
+    );
+  }
 }

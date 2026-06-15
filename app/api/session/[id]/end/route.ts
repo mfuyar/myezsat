@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/api/auth";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 const EndSchema = z.object({
@@ -9,6 +10,8 @@ const EndSchema = z.object({
   correct: z.number().int().min(0),
   total: z.number().int().min(0),
 });
+
+const FULL_SESSION_SECONDS = 60 * 60;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireApiUser();
@@ -27,13 +30,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const isMath = session.subject === "math";
   const now = new Date();
+  const streakEarned = durationSec >= FULL_SESSION_SECONDS;
 
   // Determine streak update
   const streak = await prisma.streak.findUnique({ where: { userId: user.id } });
-  let newCurrent = 1;
-  let newLongest = streak?.longest ?? 1;
+  let newCurrent = streak?.current ?? 0;
+  let newLongest = streak?.longest ?? 0;
 
-  if (streak?.lastStudied) {
+  if (streakEarned && streak?.lastStudied) {
     const lastDate = new Date(streak.lastStudied);
     const diffDays = Math.floor((now.getTime() - lastDate.getTime()) / 86400000);
     if (diffDays === 0) {
@@ -44,9 +48,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       newCurrent = 1;
     }
     newLongest = Math.max(newLongest, newCurrent);
+  } else if (streakEarned) {
+    newCurrent = 1;
+    newLongest = Math.max(newLongest, 1);
   }
 
-  await prisma.$transaction([
+  const updates: Prisma.PrismaPromise<unknown>[] = [
     // End session
     prisma.studySession.update({
       where: { id },
@@ -100,13 +107,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         elaTotal: !isMath ? { increment: total } : undefined,
       },
     }),
-    // Update streak
-    prisma.streak.upsert({
-      where: { userId: user.id },
-      create: { userId: user.id, current: 1, longest: 1, lastStudied: now },
-      update: { current: newCurrent, longest: newLongest, lastStudied: now },
-    }),
-  ]);
+  ];
 
-  return NextResponse.json({ ok: true, xpEarned, streak: newCurrent });
+  if (streakEarned) {
+    updates.push(
+    // Update streak
+      prisma.streak.upsert({
+        where: { userId: user.id },
+        create: { userId: user.id, current: 1, longest: 1, lastStudied: now },
+        update: { current: newCurrent, longest: newLongest, lastStudied: now },
+      })
+    );
+  }
+
+  await prisma.$transaction(updates);
+
+  return NextResponse.json({ ok: true, xpEarned, streak: newCurrent, streakEarned });
 }

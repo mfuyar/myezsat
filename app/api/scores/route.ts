@@ -27,7 +27,10 @@ export async function GET() {
 
   const entries = await prisma.scoreEntry.findMany({
     where: { userId: user.id },
-    orderBy: { testDate: "desc" },
+    orderBy: [
+      { testDate: "desc" },
+      { createdAt: "desc" },
+    ],
   });
 
   return NextResponse.json({ entries });

@@ -50,6 +50,75 @@ function weakArea(entry: ScoreEntry): "math" | "rw" | null {
   return diff < 0 ? "math" : "rw";
 }
 
+function formatDate(date: string) {
+  return new Date(date).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function ScoreCard({ entry, isLatest }: { entry: ScoreEntry; isLatest: boolean }) {
+  const weak = weakArea(entry);
+  const maxScore = MAX_BY_TYPE[entry.testType] ?? SAT_MAX;
+  const sectionMax = maxScore / 2;
+  const label = TEST_LABELS[entry.testType] ?? entry.testType;
+
+  return (
+    <div className="card p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            {isLatest && (
+              <span className="rounded-full bg-[var(--math-bg)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--math)]">
+                Latest
+              </span>
+            )}
+            <p className="text-xs text-[var(--muted)] uppercase tracking-widest font-semibold">
+              {label}{entry.testName ? ` · ${entry.testName}` : ""}
+            </p>
+          </div>
+          <p className="font-mono text-4xl font-bold text-[var(--text)] leading-none">
+            {entry.totalScore}
+            <span className="text-base font-normal text-[var(--muted)] ml-1">/ {maxScore}</span>
+          </p>
+          <p className="text-xs text-[var(--muted)] mt-1">{formatDate(entry.testDate)}</p>
+        </div>
+
+        {weak && (
+          <div
+            className="flex-shrink-0 rounded-xl px-3 py-2 text-xs font-semibold text-center"
+            style={{
+              background: weak === "math" ? "var(--math-bg)" : "var(--ela-bg)",
+              color: weak === "math" ? "var(--math)" : "var(--ela)",
+            }}
+          >
+            <p className="text-[10px] font-medium opacity-70 mb-0.5">Focus area</p>
+            {weak === "math" ? "Math" : "Reading & Writing"}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mb-1">Math</p>
+          <ScoreBar value={entry.mathScore} max={sectionMax} color="var(--math)" />
+        </div>
+        <div>
+          <p className="text-[10px] text-[var(--muted)] font-medium mb-1">Reading &amp; Writing</p>
+          <ScoreBar value={entry.rwScore} max={sectionMax} color="var(--ela)" />
+        </div>
+      </div>
+
+      {entry.notes && (
+        <p className="text-xs text-[var(--muted)] italic border-t border-[var(--border)] pt-3">
+          {entry.notes}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function ScoreSection() {
   const [entries, setEntries] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,11 +134,6 @@ export default function ScoreSection() {
   }, []);
 
   useEffect(() => { fetchScores(); }, [fetchScores]);
-
-  const latest = entries[0] ?? null;
-  const weak = latest ? weakArea(latest) : null;
-  const maxScore = latest ? MAX_BY_TYPE[latest.testType] : SAT_MAX;
-  const sectionMax = maxScore / 2;
 
   return (
     <section>
@@ -104,85 +168,9 @@ export default function ScoreSection() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {/* Latest score highlight */}
-          <div className="card p-5 flex flex-col gap-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs text-[var(--muted)] uppercase tracking-widest font-semibold mb-1">
-                  Latest — {TEST_LABELS[latest!.testType]}{latest!.testName ? ` · ${latest.testName}` : ""}
-                </p>
-                <p className="font-mono text-4xl font-bold text-[var(--text)] leading-none">
-                  {latest!.totalScore}
-                  <span className="text-base font-normal text-[var(--muted)] ml-1">/ {maxScore}</span>
-                </p>
-                <p className="text-xs text-[var(--muted)] mt-1">
-                  {new Date(latest!.testDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                </p>
-              </div>
-
-              {weak && (
-                <div
-                  className="flex-shrink-0 rounded-xl px-3 py-2 text-xs font-semibold text-center"
-                  style={{
-                    background: weak === "math" ? "var(--math-bg)" : "var(--ela-bg)",
-                    color: weak === "math" ? "var(--math)" : "var(--ela)",
-                  }}
-                >
-                  <p className="text-[10px] font-medium opacity-70 mb-0.5">Focus area</p>
-                  {weak === "math" ? "Math" : "Reading & Writing"}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <div>
-                <p className="text-[10px] text-[var(--muted)] font-medium mb-1">Math</p>
-                <ScoreBar value={latest!.mathScore} max={sectionMax} color="var(--math)" />
-              </div>
-              <div>
-                <p className="text-[10px] text-[var(--muted)] font-medium mb-1">Reading &amp; Writing</p>
-                <ScoreBar value={latest!.rwScore} max={sectionMax} color="var(--ela)" />
-              </div>
-            </div>
-
-            {latest!.notes && (
-              <p className="text-xs text-[var(--muted)] italic border-t border-[var(--border)] pt-3">
-                {latest.notes}
-              </p>
-            )}
-          </div>
-
-          {/* History list */}
-          {entries.length > 1 && (
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    {["Date", "Test", "Math", "R&W", "Total"].map((h) => (
-                      <th key={h} className="text-left px-4 py-2.5 text-[10px] text-[var(--muted)] font-medium uppercase tracking-wide">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.slice(1).map((e, i) => (
-                    <tr key={e.id} className={i < entries.length - 2 ? "border-b border-[var(--border)]" : ""}>
-                      <td className="px-4 py-2.5 text-[var(--muted)] text-xs whitespace-nowrap">
-                        {new Date(e.testDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" })}
-                      </td>
-                      <td className="px-4 py-2.5 text-[var(--muted)] text-xs">
-                        {TEST_LABELS[e.testType]}{e.testName ? ` · ${e.testName}` : ""}
-                      </td>
-                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: "var(--math)" }}>{e.mathScore}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs" style={{ color: "var(--ela)" }}>{e.rwScore}</td>
-                      <td className="px-4 py-2.5 font-mono text-xs font-semibold text-[var(--text)]">{e.totalScore}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {entries.map((entry, index) => (
+            <ScoreCard key={entry.id} entry={entry} isLatest={index === 0} />
+          ))}
         </div>
       )}
 

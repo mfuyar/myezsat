@@ -20,7 +20,13 @@ const TIMEZONES = [
   "Pacific/Honolulu",
 ];
 
-export default function VocabSettingsForm({ initial }: { initial: Subscription }) {
+export default function VocabSettingsForm({
+  initial,
+  emailConfigured,
+}: {
+  initial: Subscription;
+  emailConfigured: boolean;
+}) {
   const [enabled, setEnabled] = useState(initial.enabled);
   const [deliveryHour, setDeliveryHour] = useState(initial.deliveryHour);
   const [timezone, setTimezone] = useState(initial.timezone);
@@ -67,6 +73,15 @@ export default function VocabSettingsForm({ initial }: { initial: Subscription }
           <span className="w-11 h-6 rounded-full bg-[var(--s3)] peer-checked:bg-[var(--math)] transition-colors after:content-[''] after:absolute after:left-1 after:top-1 after:w-4 after:h-4 after:bg-[var(--text)] after:rounded-full after:transition-transform peer-checked:after:translate-x-5" />
         </label>
       </div>
+
+      {!emailConfigured ? (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
+          <p className="text-sm font-medium text-[var(--text)]">Email sending is not configured yet.</p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
+            Add `RESEND_API_KEY` and a verified `VOCAB_EMAIL_FROM` sender in Vercel/local env before daily vocab emails can send.
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid sm:grid-cols-2 gap-4">
         <label className="flex flex-col gap-1">

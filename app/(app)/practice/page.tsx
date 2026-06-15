@@ -18,6 +18,7 @@ const DIFFICULTIES: { value: DifficultyOption; label: string; desc: string }[] =
 ];
 
 const COUNTS = [5, 10, 20, 30];
+const START_TIMEOUT_MS = 15000;
 
 export default function PracticeSetupPage() {
   const router = useRouter();
@@ -34,20 +35,39 @@ export default function PracticeSetupPage() {
   async function startPractice() {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/practice", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject,
-        topicId: topicId === "all" ? undefined : topicId,
-        difficulty: difficulty === "mixed" ? undefined : difficulty,
-        count,
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error ?? "Failed to start"); return; }
-    router.push(`/practice/${data.sessionId}?q=${data.questionIds.join(",")}`);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), START_TIMEOUT_MS);
+
+    try {
+      const res = await fetch("/api/practice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          subject,
+          topicId: topicId === "all" ? undefined : topicId,
+          difficulty: difficulty === "mixed" ? undefined : difficulty,
+          count,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to start practice.");
+        return;
+      }
+      if (!data.sessionId || !Array.isArray(data.questionIds) || data.questionIds.length === 0) {
+        setError("Practice started without questions. Try a different topic or difficulty.");
+        return;
+      }
+      router.push(`/practice/${data.sessionId}?q=${data.questionIds.join(",")}`);
+    } catch (err) {
+      setError(err instanceof DOMException && err.name === "AbortError"
+        ? "Practice took too long to start. Try again or choose fewer questions."
+        : "Practice could not start. Please try again.");
+    } finally {
+      window.clearTimeout(timeout);
+      setLoading(false);
+    }
   }
 
   return (

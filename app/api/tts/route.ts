@@ -4,6 +4,9 @@ import { genai } from "@/lib/ai/stream";
 
 // Gemini TTS voices — Kore is clear and professional (good teacher voice)
 const VOICE = "Kore";
+const globalForTTS = globalThis as unknown as { ttsCache?: Map<string, Buffer> };
+const ttsCache = globalForTTS.ttsCache ?? new Map<string, Buffer>();
+globalForTTS.ttsCache = ttsCache;
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
   const byteRate = (sampleRate * channels * bits) / 8;
@@ -34,8 +37,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No text" }, { status: 400 });
   }
 
-  // Cap length to avoid huge requests
-  const trimmed = text.slice(0, 2500);
+  // Keep requests short so the good Gemini voice starts quickly during live tutoring.
+  const trimmed = text.slice(0, 220);
+  const cacheKey = `${VOICE}:${trimmed}`;
+  const cached = ttsCache.get(cacheKey);
+  if (cached) {
+    return new Response(cached.buffer.slice(cached.byteOffset, cached.byteOffset + cached.byteLength) as ArrayBuffer, {
+      headers: {
+        "Content-Type": "audio/wav",
+        "Cache-Control": "no-store",
+        "X-TTS-Cache": "hit",
+      },
+    });
+  }
 
   const model = genai.getGenerativeModel({
     model: "gemini-2.5-flash-preview-tts",
@@ -61,6 +75,11 @@ export async function POST(req: Request) {
 
   const pcm = Buffer.from(inlineData.data, "base64");
   const wav = pcmToWav(pcm);
+  ttsCache.set(cacheKey, wav);
+  if (ttsCache.size > 50) {
+    const oldest = ttsCache.keys().next().value;
+    if (oldest) ttsCache.delete(oldest);
+  }
 
   return new Response(wav.buffer.slice(wav.byteOffset, wav.byteOffset + wav.byteLength) as ArrayBuffer, {
     headers: {
