@@ -257,6 +257,7 @@ model SATQuestion {
   @@unique([sourceFile, questionNum])
   @@index([subject, topicId])
   @@index([subject, difficulty])
+  @@index([subject, topicId, difficulty])
 
   practiceAttempts PracticeAttempt[]
   bookmarks        Bookmark[]
@@ -320,6 +321,7 @@ model PracticeAttempt {
   @@index([sessionId])
   @@index([userId, isCorrect])
   @@index([userId, satQuestionId])
+  @@index([userId, masteredAt])
 }
 
 model Bookmark {

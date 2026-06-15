@@ -41,11 +41,16 @@ export async function POST(req: Request) {
     topicLabel,
     difficulty,
   });
+  const latestUserMessage = messages[messages.length - 1]?.content.trim() ?? "";
+  const shortAnswerOnly = /^[A-Da-d]$|^[+-]?\d+(?:\.\d+)?(?:\/\d+)?$/.test(latestUserMessage);
+  const turnGuidance = shortAnswerOnly
+    ? "\n[Turn guidance: The student gave a short final answer. If it is correct and the task is simple, accept it without demanding steps. Ask for reasoning only if the problem is complex, ambiguous, or the answer is wrong.]"
+    : "";
 
   // Tag the last user message with topic/difficulty context
   const taggedMessages = messages.map((m, i) =>
     i === messages.length - 1 && m.role === "user"
-      ? { ...m, content: `[Topic: ${topicLabel}] [Difficulty: ${difficulty}]\n${m.content}` }
+      ? { ...m, content: `[Topic: ${topicLabel}] [Difficulty: ${difficulty}]${turnGuidance}\n${m.content}` }
       : m
   );
 

@@ -40,23 +40,41 @@ export default function PracticeSessionPage() {
   const [question, setQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState<AnswerState>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [correct, setCorrect] = useState(0);
-  const [finished, setFinished] = useState(false);
   const startTimeRef = useRef(Date.now());
 
   const fetchQuestion = useCallback(async (id: string) => {
     setLoading(true);
+    setLoadError(null);
     setAnswer(null);
     startTimeRef.current = Date.now();
-    const res = await fetch(`/api/questions/${id}`);
-    const data = await res.json();
-    setQuestion(data.question);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/questions/${id}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.question) {
+        setQuestion(null);
+        setLoadError(data.error ?? "Question could not be loaded.");
+        return;
+      }
+      setQuestion(data.question);
+    } catch {
+      setQuestion(null);
+      setLoadError("Question could not be loaded. Please refresh and try again.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (questionIds[index]) fetchQuestion(questionIds[index]);
+    if (questionIds[index]) {
+      fetchQuestion(questionIds[index]);
+    } else {
+      setLoading(false);
+      setQuestion(null);
+      setLoadError("No questions were found for this practice session.");
+    }
   }, [index, fetchQuestion, questionIds]);
 
   async function submitAnswer(choice: string) {
@@ -103,8 +121,6 @@ export default function PracticeSessionPage() {
     return "border-[var(--border)] opacity-50";
   };
 
-  if (finished) return null;
-
   return (
     <div className="min-h-screen bg-[var(--bg)] flex flex-col">
       {/* Top bar */}
@@ -124,6 +140,13 @@ export default function PracticeSessionPage() {
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--math)] rounded-full animate-spin" />
+          </div>
+        ) : loadError ? (
+          <div className="card p-5 flex flex-col gap-4">
+            <p className="text-sm text-red-400">{loadError}</p>
+            <Link href="/practice">
+              <Button variant="ghost">Back to Practice</Button>
+            </Link>
           </div>
         ) : question ? (
           <>

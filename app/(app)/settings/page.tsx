@@ -25,6 +25,7 @@ export default async function SettingsPage() {
         </div>
 
         <VocabSettingsForm
+          emailConfigured={Boolean(process.env.RESEND_API_KEY)}
           initial={{
             enabled: subscription?.enabled ?? false,
             deliveryHour: subscription?.deliveryHour ?? 8,

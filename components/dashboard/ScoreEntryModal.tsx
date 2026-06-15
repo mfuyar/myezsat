@@ -34,12 +34,65 @@ export default function ScoreEntryModal({ onClose, onSaved }: Props) {
   const [rwScore, setRwScore] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisNote, setAnalysisNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [sectionMin, sectionMax] = SECTION_RANGES[testType];
   const math = parseInt(mathScore) || 0;
   const rw = parseInt(rwScore) || 0;
   const total = math && rw ? math + rw : null;
+
+  async function handleScreenshot(file: File | null) {
+    if (!file) return;
+
+    setError(null);
+    setAnalysisNote(null);
+    setAnalyzing(true);
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const res = await fetch("/api/scores/analyze", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.score) {
+        setError(data.error ?? "Could not read that screenshot.");
+        return;
+      }
+
+      const score = data.score as {
+        testType: string | null;
+        testName: string | null;
+        testDate: string | null;
+        mathScore: number | null;
+        rwScore: number | null;
+        totalScore: number | null;
+        confidence: number;
+        notes: string | null;
+      };
+
+      if (score.testType) setTestType(score.testType);
+      if (score.testName) setTestName(score.testName);
+      if (score.testDate) setTestDate(score.testDate);
+      if (score.mathScore) setMathScore(String(score.mathScore));
+      if (score.rwScore) setRwScore(String(score.rwScore));
+      if (score.notes) setNotes((current) => current || score.notes || "");
+
+      const confidence = Math.round(score.confidence * 100);
+      setAnalysisNote(
+        `Screenshot read${confidence ? ` (${confidence}% confidence)` : ""}. Check the fields before saving.`
+      );
+    } catch {
+      setError("Could not upload the screenshot. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,6 +139,32 @@ export default function ScoreEntryModal({ onClose, onSaved }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Screenshot upload */}
+          <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--s2)] p-4">
+            <label className="flex cursor-pointer flex-col gap-2">
+              <span className="text-xs text-[var(--muted)] uppercase tracking-widest font-semibold">
+                Upload Score Screenshot
+              </span>
+              <span className="text-sm text-[var(--text)]">
+                Add a College Board SAT/PSAT or practice score screenshot and we&apos;ll fill the fields for you.
+              </span>
+              <span className="inline-flex w-fit rounded-lg border border-[var(--border)] bg-[var(--s1)] px-3 py-2 text-xs font-semibold text-[var(--text)]">
+                {analyzing ? "Reading screenshot..." : "Choose Image"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={analyzing || saving}
+                onChange={(e) => {
+                  handleScreenshot(e.target.files?.[0] ?? null);
+                  e.currentTarget.value = "";
+                }}
+                className="sr-only"
+              />
+            </label>
+            {analysisNote && <p className="mt-3 text-xs text-green-400">{analysisNote}</p>}
+          </div>
+
           {/* Test type */}
           <div>
             <label className="text-xs text-[var(--muted)] uppercase tracking-widest font-semibold block mb-2">
