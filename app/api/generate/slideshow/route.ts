@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { genai } from "@/lib/ai/stream";
+import { ORIGINAL_SAT_CONTENT_GUIDANCE } from "@/lib/ai/prompts";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
 Subject: SAT ${subjectLabel}
 Topic: ${topicLabel}
 Difficulty: ${difficulty}
+
+${ORIGINAL_SAT_CONTENT_GUIDANCE}
 
 Generate exactly 8 slides for a clear, teacher-style presentation on this topic. Think of it as a mini-lecture a great teacher would give.
 

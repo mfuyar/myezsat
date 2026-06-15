@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import SocialNavLink from "@/components/notifications/SocialNavLink";
 
 interface LevelInfo { level: number; name: string; nextMin: number | null; currentMin: number; progressPct: number }
 interface GameProfile { totalXP: number; weeklyXP: number; level: number; username: string; coins: number }
@@ -181,9 +182,9 @@ export default function GameSection() {
             <Link href="/leaderboard" className="flex-1 text-center py-2 rounded-lg text-xs font-medium border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--s2)] transition-colors">
               Leaderboard
             </Link>
-            <Link href="/friends" className="flex-1 text-center py-2 rounded-lg text-xs font-medium border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--s2)] transition-colors">
+            <SocialNavLink href="/friends" className="flex-1 justify-center text-center py-2 rounded-lg text-xs font-medium border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--s2)] transition-colors">
               Friends
-            </Link>
+            </SocialNavLink>
             <Link href="/challenges" className="flex-1 text-center py-2 rounded-lg text-xs font-medium border border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:bg-[var(--s2)] transition-colors">
               Challenges
             </Link>

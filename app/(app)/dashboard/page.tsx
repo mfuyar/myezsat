@@ -7,6 +7,8 @@ import StatsRow from "@/components/dashboard/StatsRow";
 import ScoreSection from "@/components/dashboard/ScoreSection";
 import RecentSessions from "@/components/dashboard/RecentSessions";
 import GameSection from "@/components/game/GameSection";
+import SocialNavLink from "@/components/notifications/SocialNavLink";
+import Badge from "@/components/ui/Badge";
 import { MATH_TOPICS, ELA_TOPICS } from "@/types";
 
 export default async function DashboardPage() {
@@ -159,6 +161,28 @@ export default async function DashboardPage() {
               </form>
             </div>
           </div>
+      <nav className="border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
+        <Link href="/" className="font-serif italic text-xl text-[var(--text)] hover:opacity-80 transition-opacity">myezsat</Link>
+        <div className="flex items-center gap-4">
+          <Link href="/practice"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Practice</Link>
+          <Link href="/mistakes"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Mistakes</Link>
+          <SocialNavLink href="/messages" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Messages
+          </SocialNavLink>
+          <Link href="/leaderboard" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Leaderboard</Link>
+          <SocialNavLink href="/friends" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Friends
+          </SocialNavLink>
+          <Link href="/badges"      className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Badges</Link>
+          <Link href="/study-plan"  className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Study Plan</Link>
+          <Link href="/progress"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Progress</Link>
+          <Link href="/settings"    className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Settings</Link>
+          {dbUser?.role === "admin" || dbUser?.role === "tutor" ? (
+            <Link href="/admin" className="text-sm font-medium" style={{ color: "var(--math)" }}>Admin</Link>
+          ) : null}
+          <form action="/api/auth/signout" method="POST">
+            <button className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Sign out</button>
+          </form>
         </div>
       </nav>
 
@@ -174,7 +198,7 @@ export default async function DashboardPage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { href: "/practice",   label: "Practice",      icon: "📝", color: "var(--ela)",   desc: "Answer real SAT questions" },
+              { href: "/practice",   label: "Practice",      icon: "📝", color: "var(--ela)",   desc: "Answer SAT-style questions" },
               { href: "/mistakes",   label: "Mistakes",      icon: "📖", color: "var(--math)",  desc: "Review wrong answers" },
               { href: "/study-plan", label: "Study Plan",    icon: "📅", color: "var(--ela)",   desc: "Your weekly schedule" },
               { href: "/study-tools",label: "Study Tools",   icon: "🃏", color: "var(--math)",  desc: "Flashcards & slideshows" },

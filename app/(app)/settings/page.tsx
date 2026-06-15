@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import VocabSettingsForm from "@/components/vocab/VocabSettingsForm";
+import MessageDockSettings from "@/components/messages/MessageDockSettings";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -32,6 +33,8 @@ export default async function SettingsPage() {
             lastSentAt: subscription?.lastSentAt ?? null,
           }}
         />
+
+        <MessageDockSettings />
       </main>
     </div>
   );

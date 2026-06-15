@@ -57,32 +57,39 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">6. AI Tutor</h2>
+            <h2 className="text-lg font-semibold mb-3">6. Trademarks and Non-Affiliation</h2>
+            <p>SAT® is a registered trademark of the College Board, which is not affiliated with, and does not endorse, MyEzSAT.</p>
+            <p className="mt-2">PSAT/NMSQT® is a registered trademark of the College Board and National Merit Scholarship Corporation, which are not affiliated with, and do not endorse, MyEzSAT.</p>
+            <p className="mt-2">All other trademarks, service marks, and trade names referenced in the Service are the property of their respective owners.</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold mb-3">7. AI Tutor</h2>
             <p>Our AI tutor uses Google Gemini to generate educational responses. AI-generated content may contain errors. Always verify important information with official sources. The AI tutor is not a substitute for professional educational guidance.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">7. Social Features</h2>
+            <h2 className="text-lg font-semibold mb-3">8. Social Features</h2>
             <p>Friends, messaging, and leaderboard features are subject to our community guidelines. We reserve the right to moderate content, remove messages, and suspend users who engage in harassment or inappropriate behavior. Messaging features are limited to connected friends and should not be used to share personal contact information.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">8. Account Suspension and Termination</h2>
+            <h2 className="text-lg font-semibold mb-3">9. Account Suspension and Termination</h2>
             <p>We may suspend or terminate your account for violations of these terms. Suspended accounts lose access to the Service but data is preserved for 30 days. Deleted accounts are soft-deleted and may be recovered within 30 days. After 30 days, data may be permanently removed.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">9. Disclaimers</h2>
+            <h2 className="text-lg font-semibold mb-3">10. Disclaimers</h2>
             <p>The Service is provided "as is" without warranties of any kind. We do not guarantee specific SAT score improvements. Practice results on MyEzSAT do not predict official SAT performance.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">10. Changes to Terms</h2>
+            <h2 className="text-lg font-semibold mb-3">11. Changes to Terms</h2>
             <p>We may update these Terms at any time. Continued use of the Service after changes constitutes acceptance of the new terms. We will notify users of significant changes via email.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold mb-3">11. Contact</h2>
+            <h2 className="text-lg font-semibold mb-3">12. Contact</h2>
             <p>Questions about these Terms? Contact us at <a href="mailto:support@myezsat.com" className="text-[var(--ela)] underline">support@myezsat.com</a>.</p>
           </section>
 

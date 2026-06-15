@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/api/auth";
-import { Prisma } from "@prisma/client";
+import { generateAndStoreQuestions } from "@/lib/ai/question-generator";
 import { z } from "zod";
 
 const StartSchema = z.object({
@@ -63,6 +63,59 @@ export async function POST(req: Request) {
   const questionIds = [...freshIds, ...retryIds];
 
   if (questionIds.length === 0) {
+  // Get IDs of questions already answered correctly (exclude mastered ones)
+  const masteredIds = await prisma.practiceAttempt.findMany({
+    where: { userId: user.id, isCorrect: true, masteredAt: { not: null } },
+    select: { satQuestionId: true },
+  });
+  const masteredSet = new Set(masteredIds.map((a) => a.satQuestionId));
+
+  // Build question filter
+  const where: Record<string, unknown> = { subject };
+  if (topicId) where.topicId = topicId;
+  if (difficulty && difficulty !== "mixed") where.difficulty = difficulty;
+
+  // Prioritize questions not yet attempted (fresh first, then retries)
+  const attemptedIds = await prisma.practiceAttempt.findMany({
+    where: { userId: user.id },
+    select: { satQuestionId: true },
+    distinct: ["satQuestionId"],
+  });
+  const attemptedSet = new Set(attemptedIds.map((a) => a.satQuestionId));
+
+  let questions = await prisma.sATQuestion.findMany({
+    where: { ...where, id: { notIn: [...masteredSet] } },
+    select: { id: true },
+  });
+
+  // Use the saved bank first. Only generate and persist original questions when the bank is short.
+  if (questions.length < count) {
+    try {
+      await generateAndStoreQuestions({
+        subject,
+        topicId,
+        difficulty: difficulty && difficulty !== "mixed" ? difficulty : "medium",
+        count: count - questions.length,
+      });
+
+      questions = await prisma.sATQuestion.findMany({
+        where: { ...where, id: { notIn: [...masteredSet] } },
+        select: { id: true },
+      });
+    } catch (err) {
+      console.error("Failed to generate practice questions", err);
+    }
+  }
+
+  // Sort: unattempted first, then attempted
+  const unattempted = questions.filter((q) => !attemptedSet.has(q.id));
+  const attempted = questions.filter((q) => attemptedSet.has(q.id));
+
+  // Shuffle each group
+  const shuffle = <T>(arr: T[]) => arr.sort(() => Math.random() - 0.5);
+  const pool = [...shuffle(unattempted), ...shuffle(attempted)].slice(0, count);
+
+  if (pool.length === 0) {
     return NextResponse.json({ error: "No questions found for these filters" }, { status: 404 });
   }
 

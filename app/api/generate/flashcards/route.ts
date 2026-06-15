@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { genai } from "@/lib/ai/stream";
+import { ORIGINAL_SAT_CONTENT_GUIDANCE } from "@/lib/ai/prompts";
 import { prisma } from "@/lib/prisma";
 import { requireApiUser } from "@/lib/api/auth";
 import { z } from "zod";
@@ -18,6 +19,8 @@ function buildPrompt(subject: string, topicLabel: string, difficulty: string, mo
 
 Topic: ${topicLabel}
 Level: ${difficulty} SAT vocabulary
+
+${ORIGINAL_SAT_CONTENT_GUIDANCE}
 
 Generate exactly 12 vocabulary flashcards.
 
@@ -43,6 +46,8 @@ Return ONLY a valid JSON array, no markdown:
 Subject: SAT ${subjectLabel}
 Topic: ${topicLabel}
 Difficulty: ${difficulty}
+
+${ORIGINAL_SAT_CONTENT_GUIDANCE}
 
 Generate exactly 10 flashcards that test key concepts for this SAT topic at the ${difficulty} level.
 

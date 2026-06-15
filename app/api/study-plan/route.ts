@@ -25,6 +25,23 @@ const PromptSchema = z.object({
   prompt: z.string().max(500).optional(),
 });
 
+const TrackSchema = z.object({
+  day: z.string(),
+  completed: z.boolean(),
+});
+
+type DayPlan = {
+  day: string;
+  type: string;
+  subject: string;
+  topicId: string;
+  topicLabel: string;
+  count: number;
+  note: string;
+  completed?: boolean;
+  completedAt?: string | null;
+};
+
 function parsePrompt(prompt: string) {
   const lower = prompt.toLowerCase();
   const wantsMath = /\b(math|algebra|geometry|trig|statistics|advanced|quadratic|linear|equation)\b/.test(lower);
@@ -167,4 +184,33 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ plan });
+}
+
+export async function PATCH(req: Request) {
+  const auth = await requireApiUser();
+  if (auth.response) return auth.response;
+  const { user } = auth;
+
+  const parsed = TrackSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const plan = await prisma.studyPlan.findUnique({ where: { userId: user.id } });
+  if (!plan) return NextResponse.json({ error: "No saved plan found" }, { status: 404 });
+
+  const days = Array.isArray(plan.days) ? (plan.days as DayPlan[]) : [];
+  const updatedDays = days.map((day) => {
+    if (day.day !== parsed.data.day) return day;
+    return {
+      ...day,
+      completed: parsed.data.completed,
+      completedAt: parsed.data.completed ? new Date().toISOString() : null,
+    };
+  });
+
+  const updated = await prisma.studyPlan.update({
+    where: { userId: user.id },
+    data: { days: updatedDays },
+  });
+
+  return NextResponse.json({ plan: updated });
 }

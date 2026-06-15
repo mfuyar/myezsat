@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MATH_TOPICS, ELA_TOPICS } from "@/types";
 import type { Subject, Difficulty } from "@/types";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import ShareStudyDiscussion from "@/components/messages/ShareStudyDiscussion";
 
 type DifficultyOption = Difficulty | "mixed";
 
@@ -22,14 +23,18 @@ const START_TIMEOUT_MS = 15000;
 
 export default function PracticeSetupPage() {
   const router = useRouter();
-  const [subject, setSubject] = useState<Subject>("ela");
-  const [topicId, setTopicId] = useState<string>("all");
+  const searchParams = useSearchParams();
+  const initialSubject = searchParams.get("subject") === "math" ? "math" : "ela";
+  const initialTopic = searchParams.get("topic") ?? "all";
+  const [subject, setSubject] = useState<Subject>(initialSubject);
+  const [topicId, setTopicId] = useState<string>(initialTopic);
   const [difficulty, setDifficulty] = useState<DifficultyOption>("mixed");
   const [count, setCount] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const topics = subject === "math" ? MATH_TOPICS : ELA_TOPICS;
+  const selectedTopic = topics.find((topic) => topic.id === topicId);
   const color = subject === "math" ? "var(--math)" : "var(--ela)";
 
   async function startPractice() {
@@ -83,7 +88,7 @@ export default function PracticeSetupPage() {
       <main className="max-w-2xl mx-auto px-4 py-8 flex flex-col gap-8">
         <div>
           <h1 className="text-2xl font-semibold text-[var(--text)]">Practice</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">Answer real SAT questions from the official question bank</p>
+          <p className="text-sm text-[var(--muted)] mt-1">Answer original SAT-style practice questions</p>
         </div>
 
         {/* Subject */}
@@ -133,6 +138,27 @@ export default function PracticeSetupPage() {
             ))}
           </div>
         </div>
+
+        {selectedTopic && (
+          <div className="card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--text)]">Study {selectedTopic.label} with friends</p>
+              <p className="text-xs text-[var(--muted)] mt-0.5">
+                Start a 1:1 or group discussion before practice.
+              </p>
+            </div>
+            <ShareStudyDiscussion
+              payload={{
+                kind: "topic",
+                subject,
+                topicId: selectedTopic.id,
+                topicLabel: selectedTopic.label,
+              }}
+              buttonLabel="Discuss topic"
+              buttonVariant={subject === "math" ? "math" : "ela"}
+            />
+          </div>
+        )}
 
         {/* Count */}
         <div>

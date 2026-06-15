@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import ShareStudyDiscussion from "@/components/messages/ShareStudyDiscussion";
 
 interface Question {
   id: string;
@@ -188,6 +189,29 @@ export default function PracticeSessionPage() {
                   {answer.isCorrect ? "✓ Correct!" : `✗ Incorrect — correct answer is ${answer.correctAnswer}`}
                 </p>
                 <p className="text-sm text-[var(--text)] leading-relaxed">{answer.explanation}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ShareStudyDiscussion
+                    payload={{
+                      kind: "question",
+                      questionId: question.id,
+                      subject: question.subject as "math" | "ela",
+                      topicId: question.topicId,
+                      difficulty: question.difficulty,
+                      question: question.question,
+                      passage: question.passage,
+                      selectedAnswer: answer.selected ?? undefined,
+                      correctAnswer: answer.correctAnswer,
+                      wasCorrect: answer.isCorrect,
+                    }}
+                    buttonLabel={answer.isCorrect ? "Discuss this question" : "Ask a friend"}
+                    buttonVariant="ghost"
+                  />
+                  {!answer.isCorrect && (
+                    <span className="text-[10px] text-[var(--muted)]">
+                      Send it to a 1:1 chat or group with what confused you.
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import MessageContent from "@/components/messages/StudyDiscussionCard";
 
 interface Msg {
   id: string; conversationId: string; senderId: string; content: string; createdAt: string;
@@ -69,9 +71,23 @@ export default function ChatPage() {
     return () => { supabase.removeChannel(channel); };
   }, [id, messages]);
 
+  const myUsername = conversation?.participants.find((p) => p.userId === meId)?.username ?? "Someone";
+  const { typingUsers, announceTyping, announceStopped } = useTypingIndicator({
+    conversationId: id,
+    userId: meId,
+    username: myUsername,
+    enabled: !!conversation,
+  });
+  const typingLabel = typingUsers.length === 1
+    ? `@${typingUsers[0]} is typing...`
+    : typingUsers.length > 1
+      ? `${typingUsers.slice(0, 2).map((name) => `@${name}`).join(", ")} are typing...`
+      : "";
+
   async function sendMessage() {
     const text = input.trim();
     if (!text || sending) return;
+    announceStopped();
     setInput("");
     setSending(true);
 
@@ -110,9 +126,10 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg)]">
-      {/* Header */}
-      <header className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] flex-shrink-0">
+    <div className="min-h-screen bg-[var(--bg)] lg:flex lg:justify-end">
+      <section className="flex h-screen w-full flex-col bg-[var(--bg)] lg:max-w-xl lg:border-l lg:border-[var(--border)]">
+        {/* Header */}
+        <header className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)] flex-shrink-0">
         <Link href="/messages" className="text-[var(--muted)] hover:text-[var(--text)] transition-colors text-sm">←</Link>
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-[var(--bg)]"
           style={{ background: conversation?.type === "group" ? "var(--math)" : "var(--ela)" }}>
@@ -126,10 +143,10 @@ export default function ChatPage() {
             <p className="text-[10px] text-[var(--muted)]">{conversation.participants.length} members</p>
           )}
         </div>
-      </header>
+        </header>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
         {loading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-[var(--border)] border-t-[var(--ela)] rounded-full animate-spin" />
@@ -156,7 +173,7 @@ export default function ChatPage() {
                     : "rounded-tl-sm bg-[var(--s2)] border border-[var(--border)] text-[var(--text)]"
                 }`}
                   style={isMe ? { background: "var(--ela)" } : {}}>
-                  {msg.content}
+                  <MessageContent content={msg.content} />
                 </div>
                 <p className="text-[9px] text-[var(--muted)] mt-0.5 px-1">{formatTime(msg.createdAt)}</p>
               </div>
@@ -164,22 +181,29 @@ export default function ChatPage() {
           })
         )}
         <div ref={bottomRef} />
-      </div>
+        </div>
 
-      {/* Input */}
-      <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[var(--border)]">
+        {/* Input */}
+        <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t border-[var(--border)]">
+        {typingLabel && <p className="text-[10px] text-[var(--ela)] mb-1 px-1">{typingLabel}</p>}
         <div className="flex gap-2 items-end rounded-xl bg-[var(--s2)] border border-[var(--border)] p-2">
           <textarea
             ref={inputRef}
             rows={1}
             value={input}
-            onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+              if (e.target.value.trim()) announceTyping();
+              else announceStopped();
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Message…"
             className="flex-1 bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] resize-none focus:outline-none py-1 px-1 leading-relaxed"
             style={{ minHeight: "32px", maxHeight: "120px" }}
           />
-          <button onClick={sendMessage} disabled={!input.trim() || sending}
+          <button onClick={() => { announceStopped(); sendMessage(); }} disabled={!input.trim() || sending}
             className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all"
             style={{ background: "var(--ela)" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -188,7 +212,8 @@ export default function ChatPage() {
           </button>
         </div>
         <p className="text-[10px] text-[var(--muted)] mt-1 px-1">Enter to send · Shift+Enter for new line</p>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

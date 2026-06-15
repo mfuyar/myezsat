@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
+import SocialNavLink from "@/components/notifications/SocialNavLink";
 
 interface Conversation {
   id: string; type: string; name: string;
   participants: { userId: string; username: string }[];
   lastMessage: { content: string; createdAt: string } | null;
-  unread: boolean; updatedAt: string;
+  unread: boolean; unreadCount: number; updatedAt: string;
 }
 
 interface GroupInvite {
@@ -89,7 +90,9 @@ export default function MessagesPage() {
       <nav className="border-b border-[var(--border)] px-6 py-4 flex items-center justify-between">
         <Link href="/" className="font-serif italic text-xl text-[var(--text)]">myezsat</Link>
         <div className="flex items-center gap-4">
-          <Link href="/friends"   className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">Friends</Link>
+          <SocialNavLink href="/friends" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">
+            Friends
+          </SocialNavLink>
           <Link href="/dashboard" className="text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors">← Dashboard</Link>
         </div>
       </nav>
@@ -226,7 +229,11 @@ export default function MessagesPage() {
                     {c.lastMessage?.content ?? "No messages yet"}
                   </p>
                 </div>
-                {c.unread && <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "var(--ela)" }} />}
+                {(c.unreadCount ?? 0) > 0 && (
+                  <span className="min-w-5 flex-shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-center text-[10px] font-bold leading-none text-white">
+                    {c.unreadCount > 99 ? "99+" : c.unreadCount}
+                  </span>
+                )}
               </Link>
             ))}
           </div>

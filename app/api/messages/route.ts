@@ -35,12 +35,25 @@ export async function GET() {
       createdAt: p.conversation.createdAt,
     }));
 
-  const conversations = participations.filter((p) => p.status === "accepted").map((p) => {
+  const acceptedParticipations = participations.filter((p) => p.status === "accepted");
+  const unreadCounts = await Promise.all(
+    acceptedParticipations.map((p) => (
+      prisma.conversationMessage.count({
+        where: {
+          conversationId: p.conversationId,
+          senderId: { not: user.id },
+          ...(p.lastReadAt ? { createdAt: { gt: p.lastReadAt } } : {}),
+        },
+      })
+    ))
+  );
+
+  const conversations = acceptedParticipations.map((p, index) => {
     const conv = p.conversation;
     const acceptedParticipants = conv.participants.filter((x) => x.status === "accepted");
     const others = acceptedParticipants.filter((x) => x.userId !== user.id);
     const lastMsg = conv.messages[0] ?? null;
-    const unread = lastMsg && p.lastReadAt ? new Date(lastMsg.createdAt) > new Date(p.lastReadAt) : !!lastMsg;
+    const unreadCount = unreadCounts[index] ?? 0;
 
     return {
       id: conv.id,
@@ -51,7 +64,8 @@ export async function GET() {
         username: x.user.gameProfile?.username ?? x.user.name ?? "?",
       })),
       lastMessage: lastMsg ? { content: lastMsg.content, createdAt: lastMsg.createdAt } : null,
-      unread,
+      unread: unreadCount > 0,
+      unreadCount,
       updatedAt: conv.updatedAt,
     };
   });
