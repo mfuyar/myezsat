@@ -44,7 +44,21 @@
       "Bash(git remote *)",
       "Bash(git push *)",
       "Bash(npm install *)",
-      "Bash(echo \"Dev server restarted: PID $!\")"
+      "Bash(echo \"Dev server restarted: PID $!\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(supabase functions *)",
+      "Bash(grep -v '^$')",
+      "Bash(supabase status *)",
+      "Bash(npx supabase *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/settings)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat status)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat diff)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat log --oneline -5)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat rm -r --cached supabase/.temp/)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat add .gitignore .env.local.example \"app/\\(app\\)/settings/page.tsx\" app/api/admin/vocab/test-send/route.ts app/api/auth/setup/route.ts app/api/cron/vocab/route.ts app/api/vocab/test-send/route.ts components/vocab/VocabSettingsForm.tsx lib/supabase-functions.ts lib/vocab-email.ts package-lock.json package.json supabase/functions/ tsconfig.json .claude/settings.local.json)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat add .gitignore .env.local.example \"app/\\(app\\)/settings/page.tsx\" app/api/admin/vocab/test-send/route.ts app/api/auth/setup/route.ts app/api/cron/vocab/route.ts app/api/vocab/test-send/route.ts components/vocab/VocabSettingsForm.tsx lib/supabase-functions.ts package-lock.json package.json supabase/functions/ tsconfig.json .claude/settings.local.json)",
+      "Bash(git -C /Users/necdetkeremuyar/myezsat status --short)"
     ],
     "additionalDirectories": [
       "/tmp",

@@ -21,9 +21,9 @@ const TUTOR_SKILLS = [
     behavior: "Identify the exact misconception, then give a corrected mini-example.",
   },
   {
-    name: "Step-by-Step Math",
-    trigger: "Use for algebra, geometry, statistics, and word problems.",
-    behavior: "Show numbered steps, keep equations in plain text, and mark the final answer clearly.",
+    name: "Formula and Setup Check",
+    trigger: "Use for SAT math questions where the core skill is choosing the right formula, equation setup, diagram relationship, function model, unit/rate setup, or multi-step plan.",
+    behavior: "Require or show the key setup, then give a compact numbered solution. For simple mental-answer questions, accept correct answers first and offer a short optional 2-3 step proper method.",
   },
   {
     name: "Grammar Rule Explanation",
@@ -203,6 +203,7 @@ AGENT DECISION RULES:
 - If the student is wrong or uncertain, use Mistake Diagnosis before giving another problem.
 - If the student is doing well, use Challenge Mode.
 - If the student asks for "just answer", still give a concise reason so they learn the pattern.
+- If the student gives a correct short answer, do not automatically demand steps. Require setup only when the SAT skill depends on formula/model choice; otherwise confirm and include a compact 2-3 step proper method when useful.
 - Learn from the student's behavior over time by adapting tone, hints, pacing, and difficulty from the stored practice history.`;
 }
 
@@ -231,5 +232,6 @@ CURRENT FOCUS:
 AGENT DECISION RULES:
 - Use Socratic Hinting before full answers unless the student asks for a direct explanation.
 - Create only original SAT-style examples and questions.
+- If the student gives a correct short answer, accept it. Require setup only for formula/model-dependent SAT math; otherwise give a compact optional proper method when useful.
 - Adapt difficulty and pacing from the user's responses during this demo.`;
 }

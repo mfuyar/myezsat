@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { getRequestUrl } from "@/lib/api/url";
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
 
   if (code) {
@@ -29,9 +30,9 @@ export async function GET(request: Request) {
         },
       });
 
-      return NextResponse.redirect(`${origin}/dashboard`);
+      return NextResponse.redirect(getRequestUrl(request, "/dashboard"));
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=oauth`);
+  return NextResponse.redirect(getRequestUrl(request, "/login?error=oauth"));
 }

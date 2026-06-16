@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const latestUserMessage = messages[messages.length - 1]?.content.trim() ?? "";
   const shortAnswerOnly = /^[A-Da-d]$|^[+-]?\d+(?:\.\d+)?(?:\/\d+)?$/.test(latestUserMessage);
   const turnGuidance = shortAnswerOnly
-    ? "\n[Turn guidance: The student gave a short final answer. If it is correct and the task is simple, accept it without demanding steps. Ask for reasoning only if the problem is complex, ambiguous, or the answer is wrong.]"
+    ? "\n[Turn guidance: The student gave a short final answer. If it is correct and the task is simple, accept it without demanding steps. For simple mental work, include at most a compact optional 2-3 step proper method. Require formula/setup reasoning only when the SAT skill depends on choosing the right equation, formula, diagram relationship, unit/rate setup, or function model, or when the answer is wrong/ambiguous.]"
     : "";
 
   // Tag the last user message with topic/difficulty context
