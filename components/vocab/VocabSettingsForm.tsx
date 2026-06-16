@@ -31,8 +31,26 @@ export default function VocabSettingsForm({
   const [deliveryHour, setDeliveryHour] = useState(initial.deliveryHour);
   const [timezone, setTimezone] = useState(initial.timezone);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  async function sendTest() {
+    setSending(true);
+    setMessage(null);
+    setError(null);
+
+    const res = await fetch("/api/vocab/test-send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+    setSending(false);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Could not send test email.");
+      return;
+    }
+
+    setMessage("Test email sent — check your inbox.");
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -78,7 +96,7 @@ export default function VocabSettingsForm({
         <div className="rounded-lg border border-[var(--border)] bg-[var(--s2)] p-3">
           <p className="text-sm font-medium text-[var(--text)]">Email sending is not configured yet.</p>
           <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
-            Add `RESEND_API_KEY` and a verified `VOCAB_EMAIL_FROM` sender in Vercel/local env before daily vocab emails can send.
+            Deploy the Supabase `vocab-email` function and set its Resend secrets before daily vocab emails can send.
           </p>
         </div>
       ) : null}
@@ -122,7 +140,8 @@ export default function VocabSettingsForm({
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
       {message ? <p className="text-xs text-[var(--green)]">{message}</p> : null}
 
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-3">
+        <Button type="button" variant="ghost" loading={sending} onClick={sendTest}>Send test email</Button>
         <Button type="submit" variant="math" loading={saving}>Save Settings</Button>
       </div>
     </form>

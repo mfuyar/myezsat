@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { uniqueUsername } from "@/lib/game/usernames";
+import { invokeVocabEmailFunction } from "@/lib/supabase-functions";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -50,6 +51,16 @@ export async function POST(req: Request) {
       gameProfile: { create: { username } },
     },
   });
+
+  try {
+    await invokeVocabEmailFunction({
+      action: "send-welcome",
+      to: newUser.email,
+      name: newUser.name,
+    });
+  } catch (error) {
+    console.error("Could not send welcome email", error);
+  }
 
   return NextResponse.json({ user: newUser });
 }
