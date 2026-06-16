@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sendDueVocabEmails } from "@/lib/vocab-email";
+import { invokeVocabEmailFunction } from "@/lib/supabase-functions";
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -9,6 +9,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await sendDueVocabEmails();
-  return NextResponse.json(result);
+  try {
+    const result = await invokeVocabEmailFunction({ action: "send-due" });
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Could not send due vocabulary emails." },
+      { status: 500 }
+    );
+  }
 }
